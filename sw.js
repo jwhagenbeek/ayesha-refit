@@ -1,4 +1,4 @@
-const CACHE = "ayesha-refit-v14";
+const CACHE = "ayesha-refit-v15";
 const FILES = ["./", "index.html", "ayesha.jpg", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
