@@ -175,9 +175,11 @@ h2 { font-family: var(--font-display); font-weight: 500; font-size: 1.25rem; lin
 .empty { text-align: center; color: var(--ink-soft); padding: 18px 8px; }
 
 /* Add / edit dialog */
-dialog { border: 0; border-radius: 16px; padding: 0; background: var(--surface); color: var(--ink); width: min(480px, calc(100vw - 24px)); max-height: calc(100% - 24px); }
-dialog::backdrop { background: var(--scrim); }
-dialog form { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
+#dlg form.body { gap: 14px; }
+@supports (height: 100dvh) { html, body, .app { height: 100dvh; } }
+.addbtn { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.tip { margin-top: -2px; }
+.status { color: var(--high); }
 .where { font-size: .8rem; color: var(--ink-soft); }
 label.f { display: flex; flex-direction: column; gap: 5px; font-size: .82rem; font-weight: 600; color: var(--ink-soft); }
 input[type="text"], textarea { font: inherit; font-size: 16px; color: var(--ink); background: var(--raised); border: 1px solid var(--line); border-radius: 9px; padding: 10px; width: 100%; }
@@ -211,6 +213,7 @@ body { margin: 0; }
       <h1>Ayesha</h1>
       <div class="progress" id="progress"><span class="track"><i style="width:0%"></i></span><span>Loading…</span></div>
     </div>
+    <button class="iconbtn addbtn" id="addTop" type="button" aria-label="Add a task">+ Task</button>
     <button class="iconbtn" id="openList" type="button" aria-label="Show all tasks as a list">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
       List
@@ -218,6 +221,8 @@ body { margin: 0; }
   </header>
 
   <div class="chips" id="chips" role="group" aria-label="Show pins for"></div>
+  <p class="tip">Tap the boat to add a job · tap a pin to read it · <span style="opacity:.6">v4</span></p>
+  <div class="status" id="status"></div>
 
   <main class="stage">
     <div class="boatbox">
@@ -237,8 +242,6 @@ body { margin: 0; }
     </div>
   </main>
 
-  <p class="tip">Tap the boat to add a job · tap a pin to read it · <span style="opacity:.6">v3</span></p>
-  <div class="status" id="status"></div>
 </div>
 
 <!-- Task detail sheet -->
@@ -284,8 +287,9 @@ body { margin: 0; }
   </div>
 </section>
 
-<dialog id="dlg">
-  <form id="taskForm" method="dialog">
+<section class="sheet" id="dlg" hidden role="dialog" aria-labelledby="fHead">
+  <div class="grab"></div>
+  <form id="taskForm" class="body" novalidate>
     <div>
       <h2 id="fHead">New task</h2>
       <div class="where" id="fWhere"></div>
@@ -322,9 +326,13 @@ body { margin: 0; }
       </div>
     </div>
   </form>
-</dialog>
+</section>
 
 <script>
+window.addEventListener("error", e => {
+  const el = document.getElementById("status");
+  if (el) el.textContent = "Something went wrong: " + (e.message || "unknown error") + " (line " + (e.lineno || "?") + ")";
+});
 (() => {
   const W = 1782, H = 2042;
   const FIELDS = [
@@ -475,6 +483,7 @@ body { margin: 0; }
   function showSheet(id) {
     $("detail").hidden = id !== "detail";
     $("list").hidden = id !== "list";
+    $("dlg").hidden = id !== "form";
     $("scrim").hidden = !id;
   }
   function closeSheets() { openId = null; showSheet(null); renderPins(); }
@@ -499,7 +508,7 @@ body { margin: 0; }
     openId = id; fillDetail(t); showSheet("detail"); renderPins();
   }
   $("dClose").onclick = closeSheets;
-  $("scrim").onclick = closeSheets;
+  $("scrim").onclick = () => { if (!$("dlg").hidden) closeDialog(); else closeSheets(); };
   $("dDone").onclick = () => {
     const t = tasks.find(x => x.id === openId); if (!t) return;
     const { id, ...body } = t;
@@ -552,19 +561,28 @@ body { margin: 0; }
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
   }
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("scrim").hidden) closeSheets(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("scrim").hidden) { if (!$("dlg").hidden) closeDialog(); else closeSheets(); } });
+  $("addTop").onclick = () => { if (store) { openId = null; renderPins(); openDialog(null, null); } };
 
   // ---------- tapping the boat ----------
-  const svg = $("boat");
-  svg.addEventListener("click", evt => {
+  const boatbox = document.querySelector(".boatbox");
+  function zoneOf(el) {
+    while (el && el !== boatbox) {
+      if (el.getAttribute && el.getAttribute("data-zone")) return el;
+      el = el.parentNode;
+    }
+    return null;
+  }
+  boatbox.addEventListener("click", evt => {
     if (!store) return;
-    const zoneEl = evt.target.closest("[data-zone]");
+    if (evt.target.closest && evt.target.closest(".pin")) return;
+    const r = boatbox.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const zoneEl = zoneOf(evt.target);
     const zone = zoneEl ? zoneEl.getAttribute("data-zone") : null;
-    if (zoneEl) { zoneEl.classList.add("flash"); setTimeout(() => zoneEl.classList.remove("flash"), 350); }
-    const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
-    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
-    const x = Math.round(Math.max(30, Math.min(W - 30, p.x)));
-    const y = Math.round(Math.max(30, Math.min(H - 30, p.y)));
+    if (zoneEl && zoneEl.classList) { zoneEl.classList.add("flash"); setTimeout(() => zoneEl.classList.remove("flash"), 350); }
+    const x = Math.round(Math.max(30, Math.min(W - 30, (evt.clientX - r.left) / r.width * W)));
+    const y = Math.round(Math.max(30, Math.min(H - 30, (evt.clientY - r.top) / r.height * H)));
     openDialog(null, { x, y, zone });
   });
 
@@ -592,14 +610,15 @@ body { margin: 0; }
       setRadio("priority", "medium");
       btnDelete.hidden = true; $("doneWrap").hidden = true;
     }
-    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+    showSheet("form");
+    dlg.querySelector(".body").scrollTop = 0;
   }
-  function closeDialog() { dlg.close ? dlg.close() : dlg.removeAttribute("open"); }
-  // after editing from the detail sheet, return to it
-  dlg.addEventListener("close", () => {
-    if (editing && editing.id && openId === editing.id && tasks.some(t => t.id === editing.id)) showSheet("detail");
+  function closeDialog() {
+    // after editing from the detail sheet, return to it
+    const back = editing && editing.id && openId === editing.id && tasks.some(t => t.id === editing.id);
     editing = null;
-  });
+    if (back) showSheet("detail"); else { openId = null; showSheet(null); renderPins(); }
+  }
 
   form.addEventListener("submit", evt => {
     evt.preventDefault();
@@ -612,18 +631,17 @@ body { margin: 0; }
     if (typeof editing.x === "number") { body.x = editing.x; body.y = editing.y; }
     if (editing.example) body.example = true;
     const id = editing.id;
-    safe(store.save(id, body), "Could not save");
     closeDialog();
+    safe(store.save(id, body), "Could not save");
   });
   $("btnCancel").onclick = closeDialog;
   btnDelete.onclick = () => {
     if (!deleteArmed) { deleteArmed = true; btnDelete.textContent = "Tap again to delete"; btnDelete.classList.add("armed"); return; }
     const id = editing && editing.id;
     editing = null;
-    closeDialog();
-    if (id) { if (openId === id) closeSheets(); safe(store.remove(id), "Could not delete"); }
+    closeSheets();
+    if (id) safe(store.remove(id), "Could not delete");
   };
-  dlg.addEventListener("click", e => { if (e.target === dlg) closeDialog(); });
 
   // load saved tasks last, once everything above is set up
   store.subscribe(list => { tasks = list; render(); });
