@@ -205,6 +205,53 @@ body { margin: 0; }
 .appearance { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .backup { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .backup p { margin: 0; font-size: .82rem; color: var(--ink-soft); }
+
+/* Task photo with numbered notes */
+.btn svg { width: 16px; height: 16px; vertical-align: -3px; margin-right: 6px; }
+.photobtns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.photobtns .msg { font-size: .82rem; color: var(--ink-soft); }
+.photobtns img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; display: block; }
+.dphoto { text-align: center; }
+.pw { position: relative; display: inline-block; max-width: 100%; vertical-align: top; line-height: 0; }
+.pw img { display: block; max-width: 100%; height: auto; }
+.dphoto .pw { cursor: pointer; border-radius: 10px; overflow: hidden; background: var(--raised); min-width: 120px; min-height: 80px; }
+.dphoto img { max-height: 40vh; }
+.dphoto .hint { display: block; font-size: .75rem; color: var(--ink-soft); margin-top: 5px; }
+.ppins { position: absolute; inset: 0; pointer-events: none; }
+.mpin {
+  position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer;
+  width: var(--s); height: var(--s); border-radius: 50%; --s: 32px;
+  background: #ffd23f; color: #111; border: 2.5px solid #fff; box-shadow: 0 1px 5px rgba(0, 0, 0, .55);
+  font-family: var(--font-mono); font-size: calc(var(--s) * .46); font-weight: 500; line-height: 1;
+  display: grid; place-items: center; padding: 0;
+}
+.mpin.temp { background: #fff; }
+.mpin.sel { box-shadow: 0 0 0 4px #6cc3d5, 0 1px 5px rgba(0, 0, 0, .55); }
+.dphoto .mpin { --s: 22px; pointer-events: none; }
+.pnotes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.pnotes li { display: flex; gap: 8px; align-items: flex-start; font-size: .92rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+.mnum { flex: none; width: 21px; height: 21px; border-radius: 50%; background: #ffd23f; color: #111; font-family: var(--font-mono); font-size: .72rem; display: grid; place-items: center; margin-top: 1px; }
+
+/* Full-screen photo view */
+.pview {
+  position: fixed; inset: 0; z-index: 25; background: #0b0f12; color: #e6ecf0;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: max(10px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+}
+.pbar { display: flex; align-items: center; gap: 10px; }
+.pbar .pt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pbar b { font-family: var(--font-display); font-weight: 500; font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pbar span { font-size: .75rem; color: #9fadb8; }
+.pstage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.pstage .pw { cursor: crosshair; touch-action: manipulation; }
+.pstage img { max-height: calc(100vh - 150px); }
+@supports (height: 100dvh) { .pstage img { max-height: calc(100dvh - 150px); } }
+.pfoot { display: flex; gap: 8px; justify-content: space-between; }
+.pview .btn { background: #20272d; color: #e6ecf0; border-color: #36414b; }
+.pview .btn.primary { background: #6cc3d5; border-color: #6cc3d5; color: #0b0f12; }
+.pview .btn.danger { background: transparent; color: #ff8a80; border-color: #ff8a80; }
+.pview .btn.danger.armed { background: #ff8a80; color: #111; }
+#markSheet { z-index: 31; }
 </style>
 </head>
 <body>
@@ -223,7 +270,7 @@ body { margin: 0; }
   </header>
 
   <div class="chips" id="chips" role="group" aria-label="Show pins for"></div>
-  <p class="tip">Tap the boat to add a job · tap a pin to read it · <span style="opacity:.6">v5</span></p>
+  <p class="tip">Tap the boat to add a job · tap a pin to read it · <span style="opacity:.6">v6</span></p>
   <div class="status" id="status"></div>
 
   <main class="stage">
@@ -253,7 +300,16 @@ body { margin: 0; }
   <div class="body">
     <h2 id="dTitle"></h2>
     <div class="tags" id="dTags"></div>
+    <div class="dphoto" id="dPhoto" hidden>
+      <div class="pw" id="dWrap" role="button" tabindex="0" aria-label="Open the photo to read and add notes"><img id="dImg" alt="Photo for this task"><div class="ppins" id="dPins"></div></div>
+      <span class="hint">Tap the photo to add or read notes</span>
+    </div>
+    <ol class="pnotes" id="dMarks"></ol>
     <div class="notes" id="dNotes"></div>
+    <div class="photobtns" id="dPhotoBtns">
+      <label class="btn" for="camFile" id="dCam"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.5h2.5l1.2-2h4.6l1.2 2H14v7.5H2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>Take photo</label>
+      <label class="btn link" for="galFile" id="dGal">Choose from gallery</label>
+    </div>
     <div class="row">
       <button class="btn primary grow" id="dDone" type="button">Mark finished</button>
       <button class="btn" id="dEdit" type="button">Edit</button>
@@ -286,7 +342,7 @@ body { margin: 0; }
     </div>
     <div class="backup">
       <h3 style="margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)">Backup</h3>
-      <p>Your tasks are stored only on this phone. Save a backup now and then, and use it to move the list to another device.</p>
+      <p>Your tasks and photos are stored only on this phone. Save a backup now and then, and use it to move the list to another device.</p>
       <div class="row">
         <button class="btn" id="exportBtn" type="button">Save backup file</button>
         <label class="btn" for="importFile" style="display:inline-flex;align-items:center">Restore from backup</label>
@@ -327,6 +383,12 @@ body { margin: 0; }
     <label class="f">Notes
       <textarea id="fNotes" maxlength="2000" placeholder="Parts, sizes, where to buy, how far along…"></textarea>
     </label>
+    <div class="photobtns" id="fPhotoRow">
+      <label class="btn" for="camFile" id="fCam"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.5h2.5l1.2-2h4.6l1.2 2H14v7.5H2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>Take photo</label>
+      <label class="btn link" for="galFile" id="fGal">From gallery</label>
+      <img id="fThumb" alt="" hidden>
+      <span class="msg" id="fPhotoMsg"></span>
+    </div>
     <label class="toggle" id="doneWrap"><input type="checkbox" id="fDone"> Finished</label>
     <div class="actions">
       <button class="btn danger" type="button" id="btnDelete">Delete</button>
@@ -337,6 +399,37 @@ body { margin: 0; }
     </div>
   </form>
 </section>
+
+<!-- Full-screen photo with notes -->
+<div class="pview" id="pview" hidden role="dialog" aria-labelledby="pvTitle">
+  <div class="pbar">
+    <div class="pt"><b id="pvTitle"></b><span>Tap the photo to add a note · tap a number to read it</span></div>
+    <button class="btn primary" id="pvDone" type="button">Done</button>
+  </div>
+  <div class="pstage"><div class="pw" id="pvWrap"><img id="pvImg" alt="Photo for this task"><div class="ppins" id="pvPins"></div></div></div>
+  <div class="pfoot">
+    <label class="btn" for="camFile" id="pvRetake"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.5h2.5l1.2-2h4.6l1.2 2H14v7.5H2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>Retake</label>
+    <button class="btn danger" id="pvRemove" type="button">Remove photo</button>
+  </div>
+</div>
+
+<section class="sheet" id="markSheet" hidden role="dialog" aria-labelledby="mHead">
+  <div class="grab"></div>
+  <form class="body" id="markForm" novalidate>
+    <h2 id="mHead">Note 1</h2>
+    <textarea id="mText" maxlength="500" placeholder="What is here? e.g. crack in the gelcoat, about 4 cm"></textarea>
+    <div class="actions">
+      <button class="btn danger" type="button" id="mDelete">Delete</button>
+      <div class="right">
+        <button class="btn" type="button" id="mCancel">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </div>
+  </form>
+</section>
+
+<input type="file" id="camFile" accept="image/*" capture="environment" hidden>
+<input type="file" id="galFile" accept="image/*" hidden>
 
 <script>
 window.addEventListener("error", e => {
@@ -375,6 +468,7 @@ window.addEventListener("error", e => {
 
   // ---------- storage ----------
   const statusEl = $("status");
+  const newId = () => "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   function localStore() {
     const KEY = "refit.tasks";
     let data = {};
@@ -383,7 +477,7 @@ window.addEventListener("error", e => {
     const push = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} cb(Object.entries(data).map(([id, t]) => ({ id, ...t }))); };
     return {
       subscribe(fn) { cb = fn; push(); },
-      async save(id, t) { id = id || ("t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)); data[id] = t; push(); },
+      async save(id, t) { id = id || newId(); data[id] = t; push(); },
       async remove(id) { delete data[id]; push(); },
       all() { return data; },
       async replaceAll(d) { data = d; push(); },
@@ -404,6 +498,54 @@ window.addEventListener("error", e => {
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
   store = localStore();
 
+  // Photos live in IndexedDB (far more room than localStorage), one per task, keyed by task id, as JPEG data URLs.
+  const photos = (() => {
+    let dbp = null;
+    const cache = new Map();
+    const db = () => dbp || (dbp = new Promise((res, rej) => {
+      if (!window.indexedDB) { rej(new Error("this browser cannot store photos")); return; }
+      const r = indexedDB.open("ayesha-refit", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("photos");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    }).catch(e => { dbp = null; throw e; }));
+    const run = (mode, fn) => db().then(d => new Promise((res, rej) => {
+      const t = d.transaction("photos", mode); const req = fn(t.objectStore("photos"));
+      t.oncomplete = () => res(req && req.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    }));
+    return {
+      async get(id) { if (cache.has(id)) return cache.get(id); const v = await run("readonly", s => s.get(id)); if (v) cache.set(id, v); return v; },
+      put(id, v) { cache.set(id, v); return run("readwrite", s => s.put(v, id)); },
+      del(id) { cache.delete(id); return run("readwrite", s => s.delete(id)); },
+      clear() { cache.clear(); return run("readwrite", s => s.clear()); },
+      all() {
+        return db().then(d => new Promise((res, rej) => {
+          const out = {}; const r = d.transaction("photos").objectStore("photos").openCursor();
+          r.onsuccess = () => { const c = r.result; if (c) { out[c.key] = c.value; c.continue(); } else res(out); };
+          r.onerror = () => rej(r.error);
+        }));
+      },
+    };
+  })();
+  // Shrink a camera photo to at most 1600px on the long side, as JPEG.
+  function readPhoto(file) {
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const s = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+          const c = document.createElement("canvas");
+          c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          res(c.toDataURL("image/jpeg", 0.8));
+        } catch (e) { rej(e); } finally { URL.revokeObjectURL(url); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("not a picture")); };
+      img.src = url;
+    });
+  }
+
   async function safe(p, msg) { try { await p; } catch (e) { statusEl.textContent = msg + " (" + (e && e.code || "error") + ")"; } }
 
   // ---------- render ----------
@@ -417,6 +559,7 @@ window.addEventListener("error", e => {
     renderPins();
     renderList();
     if (openId) { const t = tasks.find(x => x.id === openId); if (t) fillDetail(t); else closeSheets(); }
+    if (viewId) { const t = tasks.find(x => x.id === viewId); if (t && t.photo) renderViewer(t); else closeViewer(false); }
   }
 
   function renderProgress() {
@@ -512,6 +655,21 @@ window.addEventListener("error", e => {
     n.textContent = t.notes || "No notes yet.";
     n.className = "notes" + (t.notes ? "" : " none");
     $("dDone").textContent = t.done ? "Mark not finished" : "Mark finished";
+    $("dPhoto").hidden = !t.photo;
+    $("dPhotoBtns").hidden = !!t.photo;
+    const marks = t.photo ? (t.marks || []) : [];
+    drawMarks($("dPins"), marks, false);
+    const ol = $("dMarks"); ol.innerHTML = ""; ol.hidden = !marks.length;
+    marks.forEach((m, i) => {
+      const li = document.createElement("li"); const b = document.createElement("b"); b.className = "mnum"; b.textContent = i + 1;
+      li.append(b, document.createTextNode(m.text)); ol.appendChild(li);
+    });
+    if (t.photo) {
+      const img = $("dImg");
+      if (img.dataset.for !== t.id) { img.removeAttribute("src"); img.dataset.for = t.id; }
+      photos.get(t.id).then(src => { if (src && openId === t.id && img.dataset.for === t.id && img.getAttribute("src") !== src) img.src = src; })
+        .catch(e => { statusEl.textContent = "Could not load the photo (" + (e && e.message || "error") + ")"; });
+    }
   }
   function openDetail(id) {
     const t = tasks.find(x => x.id === id); if (!t) return;
@@ -533,7 +691,7 @@ window.addEventListener("error", e => {
     render();
   };
   $("addNoSpot").onclick = () => { if (store) { showSheet(null); openDialog(null, null); } };
-  $("clearExamples").onclick = () => { tasks.filter(t => t.example).forEach(t => safe(store.remove(t.id), "Could not delete")); };
+  $("clearExamples").onclick = () => { tasks.filter(t => t.example).forEach(t => { if (t.photo) photos.del(t.id).catch(() => {}); safe(store.remove(t.id), "Could not delete"); }); };
   // ---------- appearance ----------
   let theme = "auto";
   try { theme = localStorage.getItem("refit.theme") || "auto"; } catch (e) {}
@@ -548,14 +706,20 @@ window.addEventListener("error", e => {
     try { localStorage.setItem("refit.theme", theme); } catch (e) {}
   }));
 
-  $("exportBtn").onclick = () => {
-    const blob = new Blob([JSON.stringify({ app: "ayesha-refit", version: 1, savedAt: new Date().toISOString(), tasks: store.all() }, null, 2)], { type: "application/json" });
+  $("exportBtn").onclick = async () => {
+    const all = store.all(), pics = {};
+    let failed = false;
+    const ids = Object.keys(all).filter(id => all[id].photo);
+    if (ids.length) {
+      try { const stored = await photos.all(); ids.forEach(id => { if (stored[id]) pics[id] = stored[id]; }); } catch (e) { failed = true; }
+    }
+    const blob = new Blob([JSON.stringify({ app: "ayesha-refit", version: 2, savedAt: new Date().toISOString(), tasks: all, photos: pics })], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "ayesha-tasks-" + new Date().toISOString().slice(0, 10) + ".json";
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    $("backupMsg").textContent = "Backup saved to your downloads.";
+    $("backupMsg").textContent = failed ? "Backup saved to your downloads, but without photos: they could not be read." : "Backup saved to your downloads" + (ids.length ? ", with " + Object.keys(pics).length + " photos." : ".");
   };
   $("importFile").onchange = async e => {
     const file = e.target.files && e.target.files[0]; if (!file) return;
@@ -563,7 +727,8 @@ window.addEventListener("error", e => {
       const parsed = JSON.parse(await file.text());
       const t = parsed && parsed.tasks;
       if (!t || typeof t !== "object" || Array.isArray(t)) throw new Error("bad");
-      const clean = {};
+      const clean = {}, pics = {};
+      const inPics = parsed.photos && typeof parsed.photos === "object" ? parsed.photos : {};
       for (const [id, v] of Object.entries(t)) {
         if (!v || typeof v.title !== "string") continue;
         clean[id] = {
@@ -574,9 +739,26 @@ window.addEventListener("error", e => {
           ...(typeof v.x === "number" ? { x: v.x, y: Number(v.y) || 0 } : {}),
           ...(v.example ? { example: true } : {}),
         };
+        const pic = inPics[id];
+        if (v.photo && typeof pic === "string" && pic.startsWith("data:image/")) {
+          pics[id] = pic;
+          clean[id].photo = true;
+          clean[id].marks = (Array.isArray(v.marks) ? v.marks : []).filter(m => m && typeof m.text === "string").slice(0, 50)
+            .map(m => ({ x: Math.min(1, Math.max(0, Number(m.x) || 0)), y: Math.min(1, Math.max(0, Number(m.y) || 0)), text: m.text.slice(0, 500) }));
+        }
       }
+      let photoMsg = "";
+      try {
+        await photos.clear();
+        for (const [id, pic] of Object.entries(pics)) await photos.put(id, pic);
+        if (Object.keys(pics).length) photoMsg = " and " + Object.keys(pics).length + " photos";
+      } catch (err) {
+        for (const id of Object.keys(pics)) { delete clean[id].photo; delete clean[id].marks; }
+        photoMsg = " (the photos could not be stored on this phone)";
+      }
+      closeViewer(false);
       await store.replaceAll(clean);
-      $("backupMsg").textContent = "Restored " + Object.keys(clean).length + " tasks from " + file.name + ".";
+      $("backupMsg").textContent = "Restored " + Object.keys(clean).length + " tasks" + photoMsg + " from " + file.name + ".";
     } catch (err) {
       $("backupMsg").textContent = "That file is not a backup from this app. Choose a file named like ayesha-tasks-2026-11-08.json.";
     }
@@ -585,7 +767,12 @@ window.addEventListener("error", e => {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
   }
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("scrim").hidden) { if (!$("dlg").hidden) closeDialog(); else closeSheets(); } });
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    if (!$("markSheet").hidden) closeMark();
+    else if (viewId) closeViewer(true);
+    else if (!$("scrim").hidden) { if (!$("dlg").hidden) closeDialog(); else closeSheets(); }
+  });
   $("addTop").onclick = () => { if (store) { openId = null; renderPins(); openDialog(null, null); } };
 
   // ---------- tapping the boat ----------
@@ -619,14 +806,14 @@ window.addEventListener("error", e => {
   function openDialog(task, spot) {
     deleteArmed = false; btnDelete.textContent = "Delete"; btnDelete.classList.remove("armed");
     if (task) {
-      editing = { id: task.id, x: task.x, y: task.y, createdAt: task.createdAt, example: !!task.example };
+      editing = { id: task.id, x: task.x, y: task.y, createdAt: task.createdAt, example: !!task.example, photo: !!task.photo, marks: task.marks || [] };
       $("fHead").textContent = "Edit task";
       $("fWhere").textContent = typeof task.x === "number" ? "Pinned on the drawing" : "Not pinned on the drawing";
       $("fTitle").value = task.title || ""; $("fNotes").value = task.notes || ""; $("fDone").checked = !!task.done;
       setRadio("field", task.field); setRadio("priority", task.priority);
       btnDelete.hidden = false; $("doneWrap").hidden = false;
     } else {
-      editing = { id: null, x: spot ? spot.x : null, y: spot ? spot.y : null, createdAt: null, example: false };
+      editing = { id: null, x: spot ? spot.x : null, y: spot ? spot.y : null, createdAt: null, example: false, photo: false, marks: [] };
       $("fHead").textContent = "New task";
       $("fWhere").textContent = spot ? "Pinned where you tapped" + (spot.zone ? " " + ZONE_NAMES[spot.zone] : "") : "Not pinned on the drawing";
       $("fTitle").value = ""; $("fNotes").value = ""; $("fDone").checked = false;
@@ -634,6 +821,8 @@ window.addEventListener("error", e => {
       setRadio("priority", "medium");
       btnDelete.hidden = true; $("doneWrap").hidden = true;
     }
+    pendingPhoto = null; showFormPhoto();
+    $("fPhotoRow").hidden = !!task;
     showSheet("form");
     dlg.querySelector(".body").scrollTop = 0;
   }
@@ -644,7 +833,7 @@ window.addEventListener("error", e => {
     if (back) showSheet("detail"); else { openId = null; showSheet(null); renderPins(); }
   }
 
-  form.addEventListener("submit", evt => {
+  form.addEventListener("submit", async evt => {
     evt.preventDefault();
     const title = $("fTitle").value.trim();
     if (!title) { $("fTitle").focus(); return; }
@@ -654,18 +843,185 @@ window.addEventListener("error", e => {
     const body = { title, notes: $("fNotes").value.trim(), field, priority, done: editing.id ? $("fDone").checked : false, createdAt: editing.createdAt || Date.now() };
     if (typeof editing.x === "number") { body.x = editing.x; body.y = editing.y; }
     if (editing.example) body.example = true;
-    const id = editing.id;
+    if (editing.photo) { body.photo = true; body.marks = editing.marks; }
+    const pic = editing.id ? null : pendingPhoto;
+    const id = editing.id || newId();
+    pendingPhoto = null;
     closeDialog();
-    safe(store.save(id, body), "Could not save");
+    if (pic) {
+      try { await photos.put(id, pic); body.photo = true; body.marks = []; }
+      catch (e) { statusEl.textContent = "The task is saved, but the photo could not be stored (" + (e && e.message || "error") + ")"; }
+    }
+    await safe(store.save(id, body), "Could not save");
+    if (body.photo) openViewer(id);
   });
   $("btnCancel").onclick = closeDialog;
   btnDelete.onclick = () => {
     if (!deleteArmed) { deleteArmed = true; btnDelete.textContent = "Tap again to delete"; btnDelete.classList.add("armed"); return; }
     const id = editing && editing.id;
+    const hadPhoto = editing && editing.photo;
     editing = null;
     closeSheets();
-    if (id) safe(store.remove(id), "Could not delete");
+    if (id) { if (hadPhoto) photos.del(id).catch(() => {}); safe(store.remove(id), "Could not delete"); }
   };
+
+  // ---------- photos ----------
+  let viewId = null;      // task whose photo is open full screen
+  let markEdit = null;    // { idx, x, y } note being added (idx -1) or edited
+  let photoTarget = null; // "form" or a task id: who gets the next picked photo
+  let pendingPhoto = null;
+  let removeArmed = false;
+
+  function drawMarks(el, marks, interactive, temp, selIdx) {
+    el.innerHTML = "";
+    marks.forEach((m, i) => {
+      const b = document.createElement(interactive ? "button" : "span");
+      if (interactive) b.type = "button";
+      b.className = "mpin" + (i === selIdx ? " sel" : "");
+      b.style.left = (m.x * 100) + "%"; b.style.top = (m.y * 100) + "%";
+      b.textContent = i + 1;
+      if (interactive) {
+        b.setAttribute("aria-label", "Note " + (i + 1) + ": " + m.text);
+        b.onclick = e => { e.stopPropagation(); openMark(i); };
+      }
+      el.appendChild(b);
+    });
+    if (temp) {
+      const t = document.createElement("span"); t.className = "mpin temp";
+      t.style.left = (temp.x * 100) + "%"; t.style.top = (temp.y * 100) + "%"; t.textContent = marks.length + 1;
+      el.appendChild(t);
+    }
+  }
+
+  function showFormPhoto() {
+    const th = $("fThumb");
+    th.hidden = !pendingPhoto;
+    if (pendingPhoto) th.src = pendingPhoto; else th.removeAttribute("src");
+    $("fCam").lastChild.textContent = pendingPhoto ? "Retake" : "Take photo";
+    $("fPhotoMsg").textContent = pendingPhoto ? "Add notes on it after saving" : "";
+  }
+
+  function renderViewer(t) {
+    $("pvTitle").textContent = t.title;
+    const sel = markEdit && markEdit.idx >= 0 ? markEdit.idx : -1;
+    const temp = markEdit && markEdit.idx < 0 ? markEdit : null;
+    drawMarks($("pvPins"), t.marks || [], true, temp, sel);
+  }
+  function openViewer(id) {
+    const t = tasks.find(x => x.id === id); if (!t || !t.photo) return;
+    viewId = id; markEdit = null; removeArmed = false;
+    $("pvRemove").textContent = "Remove photo"; $("pvRemove").classList.remove("armed");
+    showSheet(null);
+    const img = $("pvImg"); img.removeAttribute("src");
+    photos.get(id).then(src => { if (viewId === id && src) img.src = src; else if (!src) statusEl.textContent = "This photo is missing on this phone."; })
+      .catch(e => { statusEl.textContent = "Could not load the photo (" + (e && e.message || "error") + ")"; });
+    renderViewer(t);
+    $("pview").hidden = false;
+  }
+  function closeViewer(backToTask) {
+    const id = viewId;
+    viewId = null; markEdit = null;
+    $("markSheet").hidden = true; $("pview").hidden = true;
+    if (backToTask && id && tasks.some(t => t.id === id)) openDetail(id);
+  }
+  $("pvDone").onclick = () => closeViewer(true);
+
+  function saveTask(t, changes) {
+    const { id, ...body } = t;
+    return safe(store.save(id, { ...body, ...changes }), "Could not save");
+  }
+
+  $("pvWrap").addEventListener("click", evt => {
+    const t = tasks.find(x => x.id === viewId); if (!t) return;
+    if (!$("markSheet").hidden) { closeMark(); return; }
+    const r = $("pvImg").getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const x = Math.min(.98, Math.max(.02, (evt.clientX - r.left) / r.width));
+    const y = Math.min(.98, Math.max(.02, (evt.clientY - r.top) / r.height));
+    markEdit = { idx: -1, x: Math.round(x * 1e4) / 1e4, y: Math.round(y * 1e4) / 1e4 };
+    $("mHead").textContent = "Note " + ((t.marks || []).length + 1);
+    $("mText").value = ""; $("mDelete").hidden = true;
+    renderViewer(t);
+    $("markSheet").hidden = false;
+    setTimeout(() => $("mText").focus(), 50);
+  });
+  function openMark(i) {
+    const t = tasks.find(x => x.id === viewId); if (!t) return;
+    const m = (t.marks || [])[i]; if (!m) return;
+    markEdit = { idx: i, x: m.x, y: m.y };
+    $("mHead").textContent = "Note " + (i + 1);
+    $("mText").value = m.text; $("mDelete").hidden = false;
+    $("mDelete").textContent = "Delete"; $("mDelete").classList.remove("armed");
+    renderViewer(t);
+    $("markSheet").hidden = false;
+  }
+  function closeMark() {
+    markEdit = null; $("markSheet").hidden = true;
+    const t = tasks.find(x => x.id === viewId); if (t) renderViewer(t);
+  }
+  $("mCancel").onclick = closeMark;
+  $("markForm").addEventListener("submit", evt => {
+    evt.preventDefault();
+    const t = tasks.find(x => x.id === viewId); if (!t || !markEdit) return;
+    const text = $("mText").value.trim();
+    if (!text) { $("mText").focus(); return; }
+    const marks = (t.marks || []).slice();
+    if (markEdit.idx < 0) marks.push({ x: markEdit.x, y: markEdit.y, text });
+    else marks[markEdit.idx] = { ...marks[markEdit.idx], text };
+    markEdit = null; $("markSheet").hidden = true;
+    saveTask(t, { marks });
+  });
+  $("mDelete").onclick = () => {
+    const b = $("mDelete");
+    if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "Tap again to delete"; return; }
+    const t = tasks.find(x => x.id === viewId); if (!t || !markEdit || markEdit.idx < 0) return;
+    const marks = (t.marks || []).filter((_, i) => i !== markEdit.idx);
+    markEdit = null; $("markSheet").hidden = true;
+    saveTask(t, { marks });
+  };
+  $("pvRemove").onclick = () => {
+    const b = $("pvRemove");
+    if (!removeArmed) { removeArmed = true; b.classList.add("armed"); b.textContent = "Tap again to remove"; return; }
+    const t = tasks.find(x => x.id === viewId); if (!t) return;
+    photos.del(t.id).catch(() => {});
+    const { photo, marks, ...rest } = t;
+    closeViewer(true);
+    const { id, ...body } = rest;
+    safe(store.save(id, body), "Could not save");
+  };
+
+  // who receives the picked photo
+  ["dCam", "dGal"].forEach(id => $(id).addEventListener("click", () => { photoTarget = openId; }));
+  ["fCam", "fGal"].forEach(id => $(id).addEventListener("click", () => { photoTarget = "form"; }));
+  $("pvRetake").addEventListener("click", e => {
+    const t = tasks.find(x => x.id === viewId);
+    if (t && (t.marks || []).length && !confirm("Take a new photo? The " + t.marks.length + " notes on this photo will be removed.")) { e.preventDefault(); return; }
+    photoTarget = viewId;
+  });
+
+  async function onPhotoPicked(e) {
+    const input = e.target;
+    const file = input.files && input.files[0];
+    const target = photoTarget;
+    if (!file) return;
+    let data;
+    try { data = await readPhoto(file); }
+    catch (err) { statusEl.textContent = "Could not read that photo (" + (err && err.message || "error") + ")"; input.value = ""; return; }
+    input.value = "";
+    if (target === "form") { if (!$("dlg").hidden) { pendingPhoto = data; showFormPhoto(); } return; }
+    const t = tasks.find(x => x.id === target); if (!t) return;
+    try { await photos.put(t.id, data); }
+    catch (err) { statusEl.textContent = "Could not store the photo on this phone (" + (err && err.message || "error") + ")"; return; }
+    statusEl.textContent = "";
+    if (viewId === t.id) $("pvImg").src = data;
+    await saveTask(t, { photo: true, marks: [] });
+    openViewer(t.id);
+  }
+  $("camFile").addEventListener("change", onPhotoPicked);
+  $("galFile").addEventListener("change", onPhotoPicked);
+  const openFromDetail = () => { if (openId) openViewer(openId); };
+  $("dWrap").addEventListener("click", openFromDetail);
+  $("dWrap").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFromDetail(); } });
 
   // load saved tasks last, once everything above is set up
   store.subscribe(list => { tasks = list; render(); });
