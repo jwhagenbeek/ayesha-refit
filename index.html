@@ -14,6 +14,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<script>try { var th = localStorage.getItem("refit.theme"); if (th === "light" || th === "dark") document.documentElement.setAttribute("data-theme", th); } catch (e) {}</script>
 <style>
 /* Layout: one-screen phone app. Slim top bar, the boat drawing fills the rest; task details live in bottom sheets opened from the pins. */
 :root {
@@ -201,6 +202,7 @@ legend { font-size: .82rem; font-weight: 600; color: var(--ink-soft); padding: 0
 [hidden] { display: none !important; }
 body { margin: 0; }
 .app { padding-top: max(10px, env(safe-area-inset-top, 0px)); padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)); }
+.appearance { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .backup { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .backup p { margin: 0; font-size: .82rem; color: var(--ink-soft); }
 </style>
@@ -221,7 +223,7 @@ body { margin: 0; }
   </header>
 
   <div class="chips" id="chips" role="group" aria-label="Show pins for"></div>
-  <p class="tip">Tap the boat to add a job · tap a pin to read it · <span style="opacity:.6">v4</span></p>
+  <p class="tip">Tap the boat to add a job · tap a pin to read it · <span style="opacity:.6">v5</span></p>
   <div class="status" id="status"></div>
 
   <main class="stage">
@@ -274,6 +276,14 @@ body { margin: 0; }
     </div>
     <div id="groups"></div>
     <button class="btn link" id="clearExamples" type="button" hidden>Remove example tasks</button>
+    <div class="appearance">
+      <h3 style="margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)">Appearance</h3>
+      <div class="seg three" role="radiogroup" aria-label="Appearance">
+        <label><input type="radio" name="theme" value="light" id="th-light"><span>Light</span></label>
+        <label><input type="radio" name="theme" value="dark" id="th-dark"><span>Dark</span></label>
+        <label><input type="radio" name="theme" value="auto" id="th-auto"><span>Auto</span></label>
+      </div>
+    </div>
     <div class="backup">
       <h3 style="margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)">Backup</h3>
       <p>Your tasks are stored only on this phone. Save a backup now and then, and use it to move the list to another device.</p>
@@ -524,6 +534,20 @@ window.addEventListener("error", e => {
   };
   $("addNoSpot").onclick = () => { if (store) { showSheet(null); openDialog(null, null); } };
   $("clearExamples").onclick = () => { tasks.filter(t => t.example).forEach(t => safe(store.remove(t.id), "Could not delete")); };
+  // ---------- appearance ----------
+  let theme = "auto";
+  try { theme = localStorage.getItem("refit.theme") || "auto"; } catch (e) {}
+  function applyTheme(t) {
+    if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    else document.documentElement.removeAttribute("data-theme");
+    const r = document.querySelector('input[name="theme"][value="' + t + '"]'); if (r) r.checked = true;
+  }
+  applyTheme(theme);
+  document.querySelectorAll('input[name="theme"]').forEach(r => r.addEventListener("change", () => {
+    theme = r.value; applyTheme(theme);
+    try { localStorage.setItem("refit.theme", theme); } catch (e) {}
+  }));
+
   $("exportBtn").onclick = () => {
     const blob = new Blob([JSON.stringify({ app: "ayesha-refit", version: 1, savedAt: new Date().toISOString(), tasks: store.all() }, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
