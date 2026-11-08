@@ -123,6 +123,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 }
 .pin.p-high { --s: 34px; } .pin.p-medium { --s: 30px; } .pin.p-low { --s: 26px; }
 .pin.done { opacity: .4; }
+.pin { touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.pin.dragging { transform: translate(-50%, -50%) scale(1.3) !important; transition: none; z-index: 5; cursor: grabbing; opacity: .9;
+  box-shadow: 0 0 0 4px var(--accent), 0 6px 14px rgba(0, 0, 0, .4); }
 .pin.sel { box-shadow: 0 0 0 4px var(--accent), 0 1px 4px rgba(0, 0, 0, .35); z-index: 2; }
 @media (prefers-reduced-motion: no-preference) { .pin { transition: transform .12s; } .pin:active { transform: translate(-50%, -50%) scale(1.12); } }
 
@@ -303,7 +306,7 @@ body { margin: 0; }
     </div>
     <p class="fmsg" id="cNewMsg" role="status"></p>
   </div>
-  <p class="tip">Tap the boat to add a job · tap a pin to read it · <span style="opacity:.6">v9</span></p>
+  <p class="tip">Tap the boat to add a job · tap a pin to read it · hold a pin to move it · <span style="opacity:.6">v10</span></p>
   <div class="status" id="status"></div>
 
   <main class="stage">
@@ -677,10 +680,58 @@ window.addEventListener("error", e => {
       b.style.top = (t.y / H * 100) + "%";
       b.textContent = priLetter(t.priority);
       b.setAttribute("aria-label", `${t.title}, ${fieldName(t.field)}, ${priName(t.priority)} priority`);
-      b.onclick = e => { e.stopPropagation(); openDetail(t.id); };
+      b.onclick = e => { e.stopPropagation(); if (dragJustEnded) { dragJustEnded = false; return; } openDetail(t.id); };
+      b.oncontextmenu = e => e.preventDefault();
+      b.addEventListener("pointerdown", e => startPress(e, b, t));
       el.appendChild(b);
     }
   }
+
+  // ---------- long-press a pin to move it ----------
+  let press = null;          // { b, t, x0, y0, timer, dragging, x, y }
+  let dragJustEnded = false; // swallow the click that follows a drag
+  function startPress(e, b, t) {
+    if (e.button > 0 || press) return;
+    press = { b, t, id: e.pointerId, x0: e.clientX, y0: e.clientY, dragging: false, x: t.x, y: t.y };
+    press.timer = setTimeout(() => {
+      if (!press) return;
+      press.dragging = true;
+      b.classList.add("dragging");
+      try { b.setPointerCapture(press.id); } catch (err) {}
+      if (navigator.vibrate) navigator.vibrate(25);
+      $("status").textContent = "Drag to move · let go to drop";
+    }, 450);
+  }
+  function endPress(save) {
+    if (!press) return;
+    const p = press; press = null;
+    clearTimeout(p.timer);
+    if (!p.dragging) return;
+    p.b.classList.remove("dragging");
+    $("status").textContent = "";
+    dragJustEnded = true; setTimeout(() => { dragJustEnded = false; }, 400);
+    if (save && (p.x !== p.t.x || p.y !== p.t.y)) {
+      const { id, ...rest } = p.t;
+      safe(store.save(id, { ...rest, x: p.x, y: p.y }), "Could not move");
+    } else renderPins();
+  }
+  document.addEventListener("pointermove", e => {
+    if (!press || e.pointerId !== press.id) return;
+    if (!press.dragging) {
+      // Moving before the long press kicks in means it was not a long press.
+      if (Math.hypot(e.clientX - press.x0, e.clientY - press.y0) > 10) { clearTimeout(press.timer); press = null; }
+      return;
+    }
+    e.preventDefault();
+    const r = boatbox.getBoundingClientRect();
+    press.x = Math.round(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * W);
+    press.y = Math.round(Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) * H);
+    press.b.style.left = (press.x / W * 100) + "%";
+    press.b.style.top = (press.y / H * 100) + "%";
+  }, { passive: false });
+  document.addEventListener("pointerup", e => { if (press && e.pointerId === press.id) endPress(true); });
+  document.addEventListener("pointercancel", e => { if (press && e.pointerId === press.id) endPress(false); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && press && press.dragging) endPress(false); });
 
   function renderList() {
     const el = $("groups"); el.innerHTML = "";
@@ -866,6 +917,7 @@ window.addEventListener("error", e => {
     return null;
   }
   boatbox.addEventListener("click", evt => {
+    if (dragJustEnded) { dragJustEnded = false; return; }
     if (!store) return;
     if (evt.target.closest && evt.target.closest(".pin")) return;
     const r = boatbox.getBoundingClientRect();
