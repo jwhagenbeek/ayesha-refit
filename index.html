@@ -102,8 +102,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 
 /* Stage: the boat fills what's left */
 .stage { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; }
-.boatbox { position: relative; width: min(100%, calc((100vh - 190px) * 1782 / 2042)); aspect-ratio: 1782 / 2042; max-width: 100%; }
-@supports (width: 1cqw) { .boatbox { width: min(100cqw, calc(100cqh * 1782 / 2042)); } }
+.boatbox { --aw: 1782; --ah: 2042; position: relative; width: min(100%, calc((100vh - 190px) * var(--aw) / var(--ah))); aspect-ratio: var(--aw) / var(--ah); max-width: 100%; }
+@supports (width: 1cqw) { .boatbox { width: min(100cqw, calc(100cqh * var(--aw) / var(--ah))); } }
+.custom-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: fill; cursor: crosshair; touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; border-radius: 4px; }
 .boatbox svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: manipulation; }
 .boat-img { filter: var(--img-filter); pointer-events: none; }
 .zone, .zone * { fill: var(--fc); fill-opacity: 0; transition: fill-opacity .15s; }
@@ -306,7 +307,7 @@ body { margin: 0; }
     </div>
     <p class="fmsg" id="cNewMsg" role="status"></p>
   </div>
-  <p class="tip">Tap the boat to add a job · tap a pin to read it · hold a pin to move it · <span style="opacity:.6">v10</span></p>
+  <p class="tip">Tap the boat to add a job · tap a pin to read it · hold a pin to move it · <span style="opacity:.6">v11</span></p>
   <div class="status" id="status"></div>
 
   <main class="stage">
@@ -323,6 +324,7 @@ body { margin: 0; }
           <rect x="462" y="1525" width="48" height="85" rx="10"/>
         </g>
       </svg>
+      <img class="custom-img" id="customImg" alt="Your own picture of the boat. Tap to add a task at that spot." draggable="false" hidden>
       <div class="pins" id="pins"></div>
     </div>
   </main>
@@ -383,6 +385,16 @@ body { margin: 0; }
       </form>
       <p class="fmsg" id="fieldMsg" role="status"></p>
     </div>
+    <div class="appearance" id="drawingBox">
+      <h3 style="margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)">Drawing</h3>
+      <p class="fmsg" id="drawingNow" style="display:block">Using the Ayesha drawing.</p>
+      <div class="row">
+        <label class="btn" for="drawingFile" style="display:inline-flex;align-items:center">Use my own picture</label>
+        <input type="file" id="drawingFile" accept="image/*" hidden>
+        <button class="btn" type="button" id="drawingReset" hidden>Back to Ayesha drawing</button>
+      </div>
+      <p class="fmsg" id="drawingMsg" role="status"></p>
+    </div>
     <div class="appearance">
       <h3 style="margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)">Appearance</h3>
       <div class="seg three" role="radiogroup" aria-label="Appearance">
@@ -393,7 +405,7 @@ body { margin: 0; }
     </div>
     <div class="backup">
       <h3 style="margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)">Backup</h3>
-      <p>Your tasks and photos are stored only on this phone. Save a backup now and then, and use it to move the list to another device.</p>
+      <p>Your tasks, photos and picture are stored only on this phone. Save a backup now and then, and use it to move the list to another device.</p>
       <div class="row">
         <button class="btn" id="exportBtn" type="button">Save backup file</button>
         <label class="btn" for="importFile" style="display:inline-flex;align-items:center">Restore from backup</label>
@@ -601,18 +613,19 @@ window.addEventListener("error", e => {
       },
     };
   })();
-  // Shrink a camera photo to at most 1600px on the long side, as JPEG.
-  function readPhoto(file) {
+  // Shrink a camera photo to at most `max` px on the long side, as JPEG.
+  const readPhoto = file => readImage(file, 1600).then(r => r.src);
+  function readImage(file, max) {
     return new Promise((res, rej) => {
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => {
         try {
-          const s = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+          const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
           const c = document.createElement("canvas");
           c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
           c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-          res(c.toDataURL("image/jpeg", 0.8));
+          res({ src: c.toDataURL("image/jpeg", max > 1600 ? 0.85 : 0.8), w: c.width, h: c.height });
         } catch (e) { rej(e); } finally { URL.revokeObjectURL(url); }
       };
       img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("not a picture")); };
@@ -843,7 +856,7 @@ window.addEventListener("error", e => {
     if (ids.length) {
       try { const stored = await photos.all(); ids.forEach(id => { if (stored[id]) pics[id] = stored[id]; }); } catch (e) { failed = true; }
     }
-    const blob = new Blob([JSON.stringify({ app: "ayesha-refit", version: 3, savedAt: new Date().toISOString(), tasks: all, fields: custom, photos: pics })], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ app: "ayesha-refit", version: 3, savedAt: new Date().toISOString(), tasks: all, fields: custom, photos: pics, ...(drawing ? { drawing } : {}) })], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "ayesha-tasks-" + new Date().toISOString().slice(0, 10) + ".json";
@@ -861,7 +874,7 @@ window.addEventListener("error", e => {
       const inFields = cleanFields(parsed.fields);
       const inPics = parsed.photos && typeof parsed.photos === "object" ? parsed.photos : {};
       for (const [id, v] of Object.entries(t)) {
-        if (!v || typeof v.title !== "string") continue;
+        if (!v || typeof v.title !== "string" || id === DRAWING_KEY) continue;
         clean[id] = {
           title: v.title.slice(0, 140), notes: String(v.notes || "").slice(0, 2000),
           field: [...BUILTIN_IDS, ...inFields.map(f => f.id)].includes(v.field) ? v.field : "hull",
@@ -882,6 +895,10 @@ window.addEventListener("error", e => {
       try {
         await photos.clear();
         for (const [id, pic] of Object.entries(pics)) await photos.put(id, pic);
+        // A backup with its own picture brings it back; otherwise keep the picture this phone already uses.
+        const d = okDrawing(parsed.drawing) ? parsed.drawing : drawing;
+        if (d) await photos.put(DRAWING_KEY, { src: d.src, w: d.w, h: d.h });
+        showDrawing(d);
         if (Object.keys(pics).length) photoMsg = " and " + Object.keys(pics).length + " photos";
       } catch (err) {
         for (const id of Object.keys(pics)) { delete clean[id].photo; delete clean[id].marks; }
@@ -909,6 +926,44 @@ window.addEventListener("error", e => {
 
   // ---------- tapping the boat ----------
   const boatbox = document.querySelector(".boatbox");
+
+  // ---------- the drawing: Ayesha, or the user's own picture ----------
+  // Pins are stored as positions on a W x H grid, so they keep their place relative to whatever picture is shown.
+  const DRAWING_KEY = "__drawing__";
+  const okDrawing = d => d && typeof d.src === "string" && d.src.startsWith("data:image/") && d.w > 0 && d.h > 0;
+  let drawing = null;
+  function showDrawing(d) {
+    drawing = okDrawing(d) ? { src: d.src, w: Math.round(d.w), h: Math.round(d.h) } : null;
+    const img = $("customImg");
+    if (drawing) {
+      img.src = drawing.src; img.hidden = false; $("boat").hidden = true;
+      boatbox.style.setProperty("--aw", drawing.w); boatbox.style.setProperty("--ah", drawing.h);
+    } else {
+      img.hidden = true; img.removeAttribute("src"); $("boat").hidden = false;
+      boatbox.style.removeProperty("--aw"); boatbox.style.removeProperty("--ah");
+    }
+    $("drawingNow").textContent = drawing ? "Using your own picture." : "Using the Ayesha drawing.";
+    $("drawingReset").hidden = !drawing;
+  }
+  photos.get(DRAWING_KEY).then(showDrawing).catch(() => {});
+  $("drawingFile").onchange = async e => {
+    const file = e.target.files && e.target.files[0]; e.target.value = ""; if (!file) return;
+    const msg = $("drawingMsg"); msg.textContent = "Loading picture…";
+    try {
+      const d = await readImage(file, 2000);
+      await photos.put(DRAWING_KEY, d);
+      showDrawing(d);
+      msg.textContent = tasks.some(t => typeof t.x === "number")
+        ? "Picture changed. Your pins kept their spots; hold a pin to move it."
+        : "Picture changed. Tap it to add a job.";
+    } catch (err) {
+      msg.textContent = "Could not use that picture (" + (err && err.message || "error") + ").";
+    }
+  };
+  $("drawingReset").onclick = async () => {
+    try { await photos.del(DRAWING_KEY); } catch (e) {}
+    showDrawing(null); $("drawingMsg").textContent = "Back to the Ayesha drawing.";
+  };
   function zoneOf(el) {
     while (el && el !== boatbox) {
       if (el.getAttribute && el.getAttribute("data-zone")) return el;
