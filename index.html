@@ -68,6 +68,12 @@ body {
 .bar { display: flex; align-items: center; gap: 8px; }
 .bar .name { flex: 1; min-width: 0; }
 h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.4rem; line-height: 1.1; margin: 0; }
+.projbtn { font: inherit; color: inherit; background: none; border: 0; padding: 2px 6px 2px 0; margin: 0; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; cursor: pointer; border-radius: 8px; }
+.projbtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.projbtn svg { width: 16px; height: 16px; flex: none; color: var(--ink-soft); }
+.flist .pick { font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; text-align: left; cursor: pointer; flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-wrap: anywhere; }
+.flist .pick b { font-weight: 600; }
+.flist li.cur .pick b::after { content: " ✓"; color: var(--accent); }
 .progress { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--ink-soft); margin-top: 3px; }
 .progress .track { width: 64px; height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; flex: none; }
 .progress .track i { display: block; height: 100%; background: var(--accent); }
@@ -291,7 +297,7 @@ body { margin: 0; }
 <div class="app">
   <header class="bar">
     <div class="name">
-      <h1>Ayesha</h1>
+      <h1><button class="projbtn" id="openProjects" type="button" aria-label="Projects, current: Ayesha"><span id="projName">Ayesha</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></h1>
       <div class="progress" id="progress"><span class="track"><i style="width:0%"></i></span><span>Loading…</span></div>
     </div>
     <button class="iconbtn addbtn" id="addTop" type="button" aria-label="Add a task">+ Task</button>
@@ -314,7 +320,7 @@ body { margin: 0; }
     </div>
     <p class="fmsg" id="cNewMsg" role="status"></p>
   </div>
-  <p class="tip">Tap the boat to add a job · tap a pin to read it · hold a pin to move it · <span style="opacity:.6">v18</span></p>
+  <p class="tip">Tap the boat to add a job · tap a pin to read it · hold a pin to move it · <span style="opacity:.6">v19</span></p>
   <div class="status" id="status"></div>
 
   <main class="stage">
@@ -370,6 +376,28 @@ body { margin: 0; }
   </div>
 </section>
 
+<!-- Projects sheet -->
+<section class="sheet" id="projects" hidden aria-labelledby="pTitle" role="dialog">
+  <div class="grab"></div>
+  <div class="body">
+    <div class="lhead">
+      <h2 id="pTitle">Projects</h2>
+      <button class="btn" id="pClose" type="button">Close</button>
+    </div>
+    <ul class="flist" id="projList"></ul>
+    <form class="addfield" id="projForm" novalidate>
+      <label class="f"><span id="pfHead">New project</span>
+        <input type="text" id="pfName" maxlength="40" placeholder="e.g. the dinghy, the house, the van">
+      </label>
+      <div class="row">
+        <button class="btn primary" type="submit" id="pfSave">Add project</button>
+        <button class="btn" type="button" id="pfCancel" hidden>Cancel</button>
+      </div>
+    </form>
+    <p class="fmsg" id="projMsg" role="status"></p>
+  </div>
+</section>
+
 <!-- List sheet -->
 <section class="sheet" id="list" hidden aria-labelledby="lTitle" role="dialog">
   <div class="grab"></div>
@@ -411,7 +439,7 @@ body { margin: 0; }
     </div>
     <div class="backup">
       <h3 style="margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)">Backup</h3>
-      <p>Your tasks, photos and picture are stored only on this phone. Save a backup now and then, and use it to move the list to another device.</p>
+      <p>Your tasks, photos and picture are stored only on this phone. A backup holds the project that is open now. Save a backup now and then, and use it to move the list to another device.</p>
       <div class="row">
         <button class="btn" id="exportBtn" type="button">Save backup file</button>
         <label class="btn" for="importFile" style="display:inline-flex;align-items:center">Restore from backup</label>
@@ -561,8 +589,35 @@ window.addEventListener("error", e => {
   // ---------- storage ----------
   const statusEl = $("status");
   const newId = () => "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  function localStore() {
-    const KEY = "refit.tasks";
+  // Short message on the status line that clears itself.
+  let flashTimer = null;
+  function flash(t) {
+    statusEl.textContent = t; clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => { if (statusEl.textContent === t) statusEl.textContent = ""; }, 6000);
+  }
+
+  // ---------- projects ----------
+  // Each project has its own tasks (localStorage) and picture (IndexedDB). Workfields are shared.
+  // The first project, "p0", keeps the original keys, so data from before projects existed stays put.
+  const tasksKey = id => id === "p0" ? "refit.tasks" : "refit.tasks." + id;
+  const drawingKey = id => id === "p0" ? "__drawing__" : "__drawing__" + id;
+  let projects = [];
+  try { projects = JSON.parse(localStorage.getItem("refit.projects") || "[]"); } catch (e) {}
+  projects = (Array.isArray(projects) ? projects : [])
+    .filter(p => p && typeof p.id === "string" && /^p[a-z0-9]{1,24}$/.test(p.id) && typeof p.name === "string" && p.name.trim())
+    .map(p => ({ id: p.id, name: p.name.trim().slice(0, 40) }));
+  if (!projects.length) projects = [{ id: "p0", name: "Ayesha" }];
+  const saveProjects = () => { try { localStorage.setItem("refit.projects", JSON.stringify(projects)); } catch (e) {} };
+  saveProjects();
+  let projectId = projects[0].id;
+  try { const c = localStorage.getItem("refit.project"); if (projects.some(p => p.id === c)) projectId = c; } catch (e) {}
+  const projectName = () => (projects.find(p => p.id === projectId) || {}).name || "";
+  // Tasks of a project that is not open, straight from storage.
+  function storedTasks(id) {
+    try { const d = JSON.parse(localStorage.getItem(tasksKey(id)) || "{}"); return d && typeof d === "object" ? d : {}; } catch (e) { return {}; }
+  }
+
+  function localStore(KEY) {
     let data = {};
     try { data = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) {}
     let cb = () => {};
@@ -588,7 +643,7 @@ window.addEventListener("error", e => {
     }
   } catch (e) {}
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
-  store = localStore();
+  store = localStore(tasksKey(projectId));
 
   // Photos live in IndexedDB (far more room than localStorage), one per task, keyed by task id, as JPEG data URLs.
   const photos = (() => {
@@ -789,6 +844,7 @@ window.addEventListener("error", e => {
   function showSheet(id) {
     $("detail").hidden = id !== "detail";
     $("list").hidden = id !== "list";
+    $("projects").hidden = id !== "projects";
     $("dlg").hidden = id !== "form";
     $("scrim").hidden = !id;
   }
@@ -853,10 +909,11 @@ window.addEventListener("error", e => {
     if (ids.length) {
       try { const stored = await photos.all(); ids.forEach(id => { if (stored[id]) pics[id] = stored[id]; }); } catch (e) { failed = true; }
     }
-    const blob = new Blob([JSON.stringify({ app: "ayesha-refit", version: 3, savedAt: new Date().toISOString(), tasks: all, fields: custom, photos: pics, ...(drawing ? { drawing } : {}) })], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ app: "ayesha-refit", version: 4, project: projectName(), savedAt: new Date().toISOString(), tasks: all, fields: custom, photos: pics, ...(drawing ? { drawing } : {}) })], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "ayesha-tasks-" + new Date().toISOString().slice(0, 10) + ".json";
+    const slug = projectName().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project";
+    a.download = slug + "-tasks-" + new Date().toISOString().slice(0, 10) + ".json";
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     $("backupMsg").textContent = failed ? "Backup saved to your downloads, but without photos: they could not be read." : "Backup saved to your downloads" + (ids.length ? ", with " + Object.keys(pics).length + " photos." : ".");
@@ -870,8 +927,12 @@ window.addEventListener("error", e => {
       const clean = {}, pics = {};
       const inFields = cleanFields(parsed.fields);
       const inPics = parsed.photos && typeof parsed.photos === "object" ? parsed.photos : {};
-      for (const [id, v] of Object.entries(t)) {
-        if (!v || typeof v.title !== "string" || id === DRAWING_KEY) continue;
+      // Task ids must be unique across projects (photos are stored by task id).
+      const taken = new Set();
+      for (const q of projects) if (q.id !== projectId) Object.keys(storedTasks(q.id)).forEach(k => taken.add(k));
+      for (const [origId, v] of Object.entries(t)) {
+        if (!v || typeof v.title !== "string" || origId.startsWith("__drawing__")) continue;
+        const id = taken.has(origId) ? newId() : origId;
         clean[id] = {
           title: v.title.slice(0, 140), notes: String(v.notes || "").slice(0, 2000),
           field: [...BUILTIN_IDS, ...inFields.map(f => f.id)].includes(v.field) ? v.field : "hull",
@@ -880,7 +941,7 @@ window.addEventListener("error", e => {
           ...(typeof v.x === "number" ? { x: v.x, y: Number(v.y) || 0 } : {}),
           ...(v.example ? { example: true } : {}),
         };
-        const pic = inPics[id];
+        const pic = inPics[origId];
         if (v.photo && typeof pic === "string" && pic.startsWith("data:image/")) {
           pics[id] = pic;
           clean[id].photo = true;
@@ -890,11 +951,13 @@ window.addEventListener("error", e => {
       }
       let photoMsg = "";
       try {
-        await photos.clear();
+        // Remove this project's own photos only; other projects keep theirs.
+        const old = store.all();
+        for (const id of Object.keys(old)) if (old[id] && old[id].photo) await photos.del(id);
         for (const [id, pic] of Object.entries(pics)) await photos.put(id, pic);
         // A backup with its own picture brings it back; otherwise keep the picture this phone already uses.
         const d = okDrawing(parsed.drawing) ? parsed.drawing : drawing;
-        if (d) await photos.put(DRAWING_KEY, { src: d.src, w: d.w, h: d.h });
+        if (d) await photos.put(drawingKey(projectId), { src: d.src, w: d.w, h: d.h });
         showDrawing(d);
         if (Object.keys(pics).length) photoMsg = " and " + Object.keys(pics).length + " photos";
       } catch (err) {
@@ -902,7 +965,8 @@ window.addEventListener("error", e => {
         photoMsg = " (the photos could not be stored on this phone)";
       }
       closeViewer(false);
-      custom = inFields; saveFields(); FIELDS = BUILTIN.concat(custom);
+      // Workfields are shared by all projects: add the backup's, keep the rest.
+      custom = custom.concat(inFields.filter(f => !custom.some(c => c.id === f.id))).slice(0, 30); saveFields(); FIELDS = BUILTIN.concat(custom);
       await store.replaceAll(clean);
       $("backupMsg").textContent = "Restored " + Object.keys(clean).length + " tasks" + photoMsg + " from " + file.name + ".";
     } catch (err) {
@@ -926,7 +990,6 @@ window.addEventListener("error", e => {
 
   // ---------- the drawing: Ayesha, or the user's own picture ----------
   // Pins are stored as positions on a W x H grid, so they keep their place relative to whatever picture is shown.
-  const DRAWING_KEY = "__drawing__";
   const okDrawing = d => d && typeof d.src === "string" && d.src.startsWith("data:image/") && d.w > 0 && d.h > 0;
   let drawing = null;
   function showDrawing(d) {
@@ -942,22 +1005,18 @@ window.addEventListener("error", e => {
     $("drawingNow").textContent = drawing ? "Using your own picture." : "Using the Ayesha drawing.";
     $("drawingReset").hidden = !drawing;
   }
-  photos.get(DRAWING_KEY).then(showDrawing).catch(() => {});
+  photos.get(drawingKey(projectId)).then(showDrawing).catch(() => {});
   $("pickDrawing").onclick = () => $("drawingFile").click();
   // The button sits on the drawing, so keep its tap from also starting a new task there.
   $("pickDrawing2").onclick = e => { e.stopPropagation(); $("drawingFile").click(); };
   // Messages go both to the Drawing section and, briefly, to the status line on the main screen.
-  let drawingNoteTimer = null;
-  const msg = { set textContent(t) {
-    $("drawingMsg").textContent = t; statusEl.textContent = t;
-    clearTimeout(drawingNoteTimer); drawingNoteTimer = setTimeout(() => { if (statusEl.textContent === t) statusEl.textContent = ""; }, 6000);
-  } };
+  const msg = { set textContent(t) { $("drawingMsg").textContent = t; flash(t); } };
   $("drawingFile").onchange = async e => {
     const file = e.target.files && e.target.files[0]; e.target.value = ""; if (!file) return;
     msg.textContent = "Loading picture…";
     try {
       const d = await readImage(file, 2000);
-      await photos.put(DRAWING_KEY, d);
+      await photos.put(drawingKey(projectId), d);
       showDrawing(d);
       msg.textContent = tasks.some(t => typeof t.x === "number")
         ? "Picture changed. Your pins kept their spots; hold a pin to move it."
@@ -967,7 +1026,7 @@ window.addEventListener("error", e => {
     }
   };
   $("drawingReset").onclick = async () => {
-    try { await photos.del(DRAWING_KEY); } catch (e) {}
+    try { await photos.del(drawingKey(projectId)); } catch (e) {}
     showDrawing(null); msg.textContent = "Back to the Ayesha drawing.";
   };
   function zoneOf(el) {
@@ -1093,13 +1152,19 @@ window.addEventListener("error", e => {
     $("ffSave").textContent = "Add workfield"; $("ffCancel").hidden = true;
     renderSwatches(unusedColor());
   }
+  // How many tasks use a workfield, across all projects.
+  function fieldUse(fid) {
+    let n = tasks.filter(t => t.field === fid).length;
+    for (const p of projects) if (p.id !== projectId) n += Object.values(storedTasks(p.id)).filter(t => t && t.field === fid).length;
+    return n;
+  }
   function renderFields() {
     const el = $("fieldList"); el.innerHTML = "";
     for (const f of FIELDS) {
       const li = document.createElement("li");
       const d = paint(document.createElement("i"), f.id); d.className += " dot";
       const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = f.name;
-      const n = tasks.filter(t => t.field === f.id).length;
+      const n = fieldUse(f.id);
       const sub = document.createElement("span"); sub.className = "sub";
       sub.textContent = BUILTIN_IDS.includes(f.id) ? "on the drawing" : n + (n === 1 ? " task" : " tasks");
       li.append(d, nm, sub);
@@ -1352,6 +1417,100 @@ window.addEventListener("error", e => {
   const openFromDetail = () => { if (openId) openViewer(openId); };
   $("dWrap").addEventListener("click", openFromDetail);
   $("dWrap").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFromDetail(); } });
+
+  // ---------- project switching and the Projects sheet ----------
+  function showProjectName() {
+    const n = projectName();
+    $("projName").textContent = n; document.title = n + " Refit";
+    $("openProjects").setAttribute("aria-label", "Projects, current: " + n);
+  }
+  function switchProject(id) {
+    if (id === projectId || !projects.some(p => p.id === id)) return;
+    projectId = id;
+    try { localStorage.setItem("refit.project", id); } catch (e) {}
+    openId = null; filterField = "all";
+    store = localStore(tasksKey(id));
+    store.subscribe(list => { tasks = list; render(); });
+    showDrawing(null);
+    photos.get(drawingKey(id)).then(d => { if (projectId === id) showDrawing(d); }).catch(() => {});
+    $("drawingMsg").textContent = ""; $("backupMsg").textContent = "";
+    showProjectName();
+  }
+  let editProject = null, projDelArmed = null;
+  const projMsg = $("projMsg");
+  function resetProjectForm() {
+    editProject = null; $("pfHead").textContent = "New project"; $("pfName").value = "";
+    $("pfSave").textContent = "Add project"; $("pfCancel").hidden = true;
+  }
+  function renderProjects() {
+    const el = $("projList"); el.innerHTML = "";
+    for (const p of projects) {
+      const list = p.id === projectId ? tasks : Object.values(storedTasks(p.id));
+      const open = list.filter(t => t && !t.done).length;
+      const li = document.createElement("li"); if (p.id === projectId) li.className = "cur";
+      const pick = document.createElement("button"); pick.type = "button"; pick.className = "pick";
+      const b = document.createElement("b"); b.textContent = p.name;
+      const sub = document.createElement("span"); sub.className = "sub";
+      sub.textContent = (p.id === projectId ? "Open now · " : "") + open + (open === 1 ? " job" : " jobs") + " to do";
+      pick.append(b, sub);
+      pick.setAttribute("aria-current", String(p.id === projectId));
+      pick.onclick = () => { switchProject(p.id); closeSheets(); };
+      const e = document.createElement("button"); e.type = "button"; e.className = "btn"; e.textContent = "Rename";
+      e.onclick = () => {
+        editProject = p.id; projMsg.textContent = "";
+        $("pfHead").textContent = "Rename " + p.name; $("pfName").value = p.name;
+        $("pfSave").textContent = "Save"; $("pfCancel").hidden = false; $("pfName").focus();
+      };
+      li.append(pick, e);
+      if (projects.length > 1) {
+        const x = document.createElement("button"); x.type = "button"; x.className = "btn danger";
+        const armed = projDelArmed === p.id;
+        x.textContent = armed ? "Tap again" : "Delete"; if (armed) x.classList.add("armed");
+        x.onclick = async () => {
+          if (projDelArmed !== p.id) {
+            projDelArmed = p.id; renderProjects();
+            projMsg.textContent = "Deleting " + p.name + " removes its " + list.length + (list.length === 1 ? " task" : " tasks") + ", photos and picture. Tap again to delete.";
+            return;
+          }
+          projDelArmed = null;
+          const all = p.id === projectId ? store.all() : storedTasks(p.id);
+          for (const [tid, t] of Object.entries(all)) if (t && t.photo) photos.del(tid).catch(() => {});
+          photos.del(drawingKey(p.id)).catch(() => {});
+          try { localStorage.removeItem(tasksKey(p.id)); } catch (err) {}
+          projects = projects.filter(q => q.id !== p.id); saveProjects();
+          if (p.id === projectId) { projectId = null; switchProject(projects[0].id); }
+          if (editProject === p.id) resetProjectForm();
+          projMsg.textContent = p.name + " deleted.";
+          renderProjects();
+        };
+        li.appendChild(x);
+      }
+      el.appendChild(li);
+    }
+  }
+  $("openProjects").onclick = () => {
+    openId = null; renderPins(); projDelArmed = null; projMsg.textContent = ""; resetProjectForm();
+    renderProjects(); showSheet("projects");
+  };
+  $("pClose").onclick = closeSheets;
+  $("pfCancel").onclick = () => { projMsg.textContent = ""; resetProjectForm(); };
+  $("projForm").addEventListener("submit", evt => {
+    evt.preventDefault();
+    const name = $("pfName").value.trim().slice(0, 40);
+    if (!name) { $("pfName").focus(); return; }
+    if (projects.some(p => p.id !== editProject && p.name.toLowerCase() === name.toLowerCase())) { projMsg.textContent = "There is already a project called " + name + "."; return; }
+    if (editProject) {
+      projects = projects.map(p => p.id === editProject ? { ...p, name } : p); saveProjects();
+      projMsg.textContent = "Renamed to " + name + ".";
+      resetProjectForm(); showProjectName(); renderProjects();
+      return;
+    }
+    const id = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    projects.push({ id, name }); saveProjects();
+    switchProject(id); closeSheets();
+    flash(name + " created. Tap the picture icon to use a picture of it, then tap it to add jobs.");
+  });
+  showProjectName();
 
   // load saved tasks last, once everything above is set up
   store.subscribe(list => { tasks = list; render(); });
