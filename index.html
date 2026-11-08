@@ -384,7 +384,6 @@ body { margin: 0; }
   } catch (e) {}
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
   store = localStore();
-  store.subscribe(list => { tasks = list; render(); });
 
   async function safe(p, msg) { try { await p; } catch (e) { statusEl.textContent = msg + " (" + (e && e.code || "error") + ")"; } }
 
@@ -625,7 +624,8 @@ body { margin: 0; }
   };
   dlg.addEventListener("click", e => { if (e.target === dlg) closeDialog(); });
 
-  render();
+  // load saved tasks last, once everything above is set up
+  store.subscribe(list => { tasks = list; render(); });
 })();
 </script>
 </body>
