@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
-<script>try { var th = localStorage.getItem("refit.theme"); if (th === "light" || th === "dark") document.documentElement.setAttribute("data-theme", th); } catch (e) {}</script>
+<meta name="color-scheme" content="only light">
 <style>
 /* Layout: one-screen phone app. Slim top bar, the boat drawing fills the rest; task details live in bottom sheets opened from the pins. */
 :root {
@@ -41,27 +41,12 @@
   --low: #3d6b4f;
   --low-bg: #e4f1e8;
 
-  --img-filter: none;
+  color-scheme: only light;
 
   --font-display: "Bitter", Georgia, serif;
   --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #1a1a1a; --surface: #20272d; --raised: #2a333b; --ink: #e6ecf0; --ink-soft: #9fadb8; --line: #36414b; --accent: #6cc3d5; --scrim: rgba(0, 0, 0, .55);
-  --hull: #4a8ae8; --electronics: #ef5a4f; --rigging: #0b0d0f; --interior: #f29a3a; --pin-ring: #e6ecf0; --pin-text: #ffffff;
-  --high: #ff8a80; --high-bg: #3d1d1b; --medium: #f2b766; --medium-bg: #3a2b14; --low: #8fd0a6; --low-bg: #1b3326;
-  --img-filter: invert(.9);
-  color-scheme: dark;
-} }
-:root[data-theme="dark"] {
-  --bg: #1a1a1a; --surface: #20272d; --raised: #2a333b; --ink: #e6ecf0; --ink-soft: #9fadb8; --line: #36414b; --accent: #6cc3d5; --scrim: rgba(0, 0, 0, .55);
-  --hull: #4a8ae8; --electronics: #ef5a4f; --rigging: #0b0d0f; --interior: #f29a3a; --pin-ring: #e6ecf0; --pin-text: #ffffff;
-  --high: #ff8a80; --high-bg: #3d1d1b; --medium: #f2b766; --medium-bg: #3a2b14; --low: #8fd0a6; --low-bg: #1b3326;
-  --img-filter: invert(.9);
-  color-scheme: dark;
-}
-
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
 body {
@@ -106,7 +91,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 @supports (width: 1cqw) { .boatbox { width: min(100cqw, calc(100cqh * var(--aw) / var(--ah))); } }
 .custom-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: fill; cursor: crosshair; touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; border-radius: 4px; }
 .boatbox svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: manipulation; }
-.boat-img { filter: var(--img-filter); pointer-events: none; }
+.boat-img { pointer-events: none; }
 .zone, .zone * { fill: var(--fc); fill-opacity: 0; transition: fill-opacity .15s; }
 @media (hover: hover) { .zone:hover, .zone:hover * { fill-opacity: .12; } }
 .zone.flash, .zone.flash * { fill-opacity: .18; }
@@ -307,7 +292,7 @@ body { margin: 0; }
     </div>
     <p class="fmsg" id="cNewMsg" role="status"></p>
   </div>
-  <p class="tip">Tap the boat to add a job · tap a pin to read it · hold a pin to move it · <span style="opacity:.6">v11</span></p>
+  <p class="tip">Tap the boat to add a job · tap a pin to read it · hold a pin to move it · <span style="opacity:.6">v12</span></p>
   <div class="status" id="status"></div>
 
   <main class="stage">
@@ -394,14 +379,6 @@ body { margin: 0; }
         <button class="btn" type="button" id="drawingReset" hidden>Back to Ayesha drawing</button>
       </div>
       <p class="fmsg" id="drawingMsg" role="status"></p>
-    </div>
-    <div class="appearance">
-      <h3 style="margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)">Appearance</h3>
-      <div class="seg three" role="radiogroup" aria-label="Appearance">
-        <label><input type="radio" name="theme" value="light" id="th-light"><span>Light</span></label>
-        <label><input type="radio" name="theme" value="dark" id="th-dark"><span>Dark</span></label>
-        <label><input type="radio" name="theme" value="auto" id="th-auto"><span>Auto</span></label>
-      </div>
     </div>
     <div class="backup">
       <h3 style="margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)">Backup</h3>
@@ -524,7 +501,7 @@ window.addEventListener("error", e => {
   const saveFields = () => { try { localStorage.setItem("refit.fields", JSON.stringify(custom)); } catch (e) {} };
   let FIELDS = BUILTIN.concat(custom);
   const isField = id => FIELDS.some(f => f.id === id);
-  // Give an element the workfield's color (built-ins use CSS classes so they follow light/dark mode).
+  // Give an element the workfield's color (built-ins use their CSS classes).
   function paint(el, id) {
     if (BUILTIN_IDS.includes(id)) el.classList.add("f-" + id);
     else { const f = custom.find(c => c.id === id); el.style.setProperty("--fc", f ? f.color : "#888888"); }
@@ -835,19 +812,6 @@ window.addEventListener("error", e => {
   };
   $("addNoSpot").onclick = () => { if (store) { showSheet(null); openDialog(null, null); } };
   $("clearExamples").onclick = () => { tasks.filter(t => t.example).forEach(t => { if (t.photo) photos.del(t.id).catch(() => {}); safe(store.remove(t.id), "Could not delete"); }); };
-  // ---------- appearance ----------
-  let theme = "auto";
-  try { theme = localStorage.getItem("refit.theme") || "auto"; } catch (e) {}
-  function applyTheme(t) {
-    if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
-    else document.documentElement.removeAttribute("data-theme");
-    const r = document.querySelector('input[name="theme"][value="' + t + '"]'); if (r) r.checked = true;
-  }
-  applyTheme(theme);
-  document.querySelectorAll('input[name="theme"]').forEach(r => r.addEventListener("change", () => {
-    theme = r.value; applyTheme(theme);
-    try { localStorage.setItem("refit.theme", theme); } catch (e) {}
-  }));
 
   $("exportBtn").onclick = async () => {
     const all = store.all(), pics = {};
