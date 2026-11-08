@@ -98,7 +98,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 @media (hover: hover) { .zone:hover, .zone:hover * { fill-opacity: .12; } }
 .zone.flash, .zone.flash * { fill-opacity: .18; }
 
-.pins { position: absolute; inset: 0; pointer-events: none; }
+/* Pins sit above the change-picture button, so a pin dropped on it can still be tapped. */
+.pins { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 .picswap { position: absolute; right: 4px; bottom: 4px; z-index: 3; width: 44px; height: 44px; padding: 0; display: grid; place-items: center;
   border: 0; background: none; color: var(--ink); cursor: pointer; }
 /* A faint white halo keeps it visible on dark photos; on the white drawing it doesn't show. */
@@ -302,7 +303,7 @@ body { margin: 0; }
     </div>
     <p class="fmsg" id="cNewMsg" role="status"></p>
   </div>
-  <p class="tip">Tap the boat to add a job · tap a pin to read it · hold a pin to move it · <span style="opacity:.6">v16</span></p>
+  <p class="tip">Tap the boat to add a job · tap a pin to read it · hold a pin to move it · <span style="opacity:.6">v17</span></p>
   <div class="status" id="status"></div>
 
   <main class="stage">
