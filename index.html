@@ -271,8 +271,9 @@ body { margin: 0; }
 .swatches input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 3px; }
 .fmsg { margin: 0; font-size: .82rem; color: var(--ink-soft); }
 .fmsg:empty { display: none; }
-.legendrow { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.legendrow .btn.link { font-size: .8rem; padding: 0; }
+.addwf { display: block; margin: 8px auto 0; padding: 7px 18px; font-size: .88rem; font-weight: 600; border-radius: 999px; border-color: var(--ink-soft); }
+.inlinefield { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding: 10px; border: 1px dashed var(--line); border-radius: 10px; }
+.inlinefield input[type=text] { font: inherit; padding: 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--ink); }
 </style>
 </head>
 <body>
@@ -291,7 +292,7 @@ body { margin: 0; }
   </header>
 
   <div class="chips" id="chips" role="group" aria-label="Show pins for"></div>
-  <p class="tip">Tap the boat to add a job · tap a pin to read it · <span style="opacity:.6">v7</span></p>
+  <p class="tip">Tap the boat to add a job · tap a pin to read it · <span style="opacity:.6">v8</span></p>
   <div class="status" id="status"></div>
 
   <main class="stage">
@@ -402,7 +403,16 @@ body { margin: 0; }
     <fieldset>
       <legend>Workfield</legend>
       <div class="seg" id="fFields"></div>
-      <div class="legendrow"><span></span><button class="btn link" type="button" id="fNewField">+ New workfield</button></div>
+      <button class="btn addwf" type="button" id="fNewField" aria-expanded="false" aria-controls="fNewBox">+ Add workfield</button>
+      <div class="inlinefield" id="fNewBox" hidden>
+        <input type="text" id="fNewName" maxlength="30" placeholder="Name, e.g. Engine, Sails, Plumbing" aria-label="New workfield name" enterkeyhint="done">
+        <div class="swatches" id="fNewSwatches" role="radiogroup" aria-label="Color"></div>
+        <div class="row">
+          <button class="btn primary" type="button" id="fNewAdd">Add</button>
+          <button class="btn" type="button" id="fNewCancel">Cancel</button>
+        </div>
+        <p class="fmsg" id="fNewMsg" role="status"></p>
+      </div>
     </fieldset>
     <fieldset>
       <legend>Priority</legend>
@@ -692,7 +702,7 @@ window.addEventListener("error", e => {
     $("dlg").hidden = id !== "form";
     $("scrim").hidden = !id;
   }
-  function closeSheets() { openId = null; returnToForm = null; showSheet(null); renderPins(); }
+  function closeSheets() { openId = null; showSheet(null); renderPins(); }
 
   function fillDetail(t) {
     $("dTitle").textContent = t.title;
@@ -870,7 +880,7 @@ window.addEventListener("error", e => {
     }
   }
   function openDialog(task, spot) {
-    returnToForm = null;
+    hideNewField();
     renderFieldOptions();
     deleteArmed = false; btnDelete.textContent = "Delete"; btnDelete.classList.remove("armed");
     if (task) {
@@ -937,11 +947,11 @@ window.addEventListener("error", e => {
   let editField = null;   // id of the custom workfield being edited, or null when adding
   let fieldDelArmed = null;
   const fieldMsg = $("fieldMsg");
-  function renderSwatches(sel) {
-    const el = $("swatches"); el.innerHTML = "";
+  function renderSwatches(sel, elId = "swatches", group = "swatch") {
+    const el = $(elId); el.innerHTML = "";
     SWATCHES.forEach((c, n) => {
       const l = document.createElement("label");
-      const i = document.createElement("input"); i.type = "radio"; i.name = "swatch"; i.value = c; i.checked = c === sel;
+      const i = document.createElement("input"); i.type = "radio"; i.name = group; i.value = c; i.checked = c === sel;
       i.setAttribute("aria-label", "Color " + (n + 1));
       const sp = document.createElement("span"); sp.style.setProperty("--sw", c);
       l.append(i, sp); el.appendChild(l);
@@ -995,47 +1005,43 @@ window.addEventListener("error", e => {
     if (!name) { $("ffName").focus(); return; }
     if (FIELDS.some(f => f.id !== editField && f.name.toLowerCase() === name.toLowerCase())) { fieldMsg.textContent = "There is already a workfield called " + name + "."; return; }
     const color = ($("swatches").querySelector("input:checked") || {}).value || unusedColor();
-    let picked = editField;
     if (editField) {
       custom = custom.map(c => c.id === editField ? { ...c, name, color } : c);
       fieldMsg.textContent = name + " saved.";
     } else {
-      picked = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      const picked = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
       custom.push({ id: picked, name, color });
       fieldMsg.textContent = name + " added. Pick it when you add or edit a task.";
     }
     saveFields(); FIELDS = BUILTIN.concat(custom);
     resetFieldForm(); render();
-    if (returnToForm) { const back = returnToForm; returnToForm = null; back.field = picked; reopenForm(back); }
   });
   $("ffCancel").onclick = () => { fieldMsg.textContent = ""; resetFieldForm(); };
   resetFieldForm();
 
-  // "+ New workfield" in the task form: keep what was typed, add the workfield, come back.
-  let returnToForm = null;
+  // "+ Add workfield" in the task form: add a workfield right there and select it.
+  const newBox = $("fNewBox"), newMsg = $("fNewMsg");
+  function hideNewField() { newBox.hidden = true; $("fNewField").hidden = false; $("fNewField").setAttribute("aria-expanded", "false"); }
   $("fNewField").onclick = () => {
-    returnToForm = {
-      editing, title: $("fTitle").value, notes: $("fNotes").value, done: $("fDone").checked,
-      priority: (form.querySelector('input[name="priority"]:checked') || {}).value || "medium",
-      head: $("fHead").textContent, where: $("fWhere").textContent,
-      photoRow: $("fPhotoRow").hidden, deleteHidden: btnDelete.hidden, doneHidden: $("doneWrap").hidden,
-    };
-    resetFieldForm(); fieldMsg.textContent = "Add the new workfield, then you go back to your task.";
-    showSheet("list");
-    $("list").querySelector(".body").scrollTop = $("fieldsBox").offsetTop - 20;
-    setTimeout(() => $("ffName").focus(), 50);
+    $("fNewName").value = ""; newMsg.textContent = "";
+    renderSwatches(unusedColor(), "fNewSwatches", "nswatch");
+    newBox.hidden = false; $("fNewField").hidden = true; $("fNewField").setAttribute("aria-expanded", "true");
+    $("fNewName").focus();
   };
-  function reopenForm(b) {
-    renderFieldOptions();
-    editing = b.editing;
-    $("fTitle").value = b.title; $("fNotes").value = b.notes; $("fDone").checked = b.done;
-    $("fHead").textContent = b.head; $("fWhere").textContent = b.where;
-    $("fPhotoRow").hidden = b.photoRow; btnDelete.hidden = b.deleteHidden; $("doneWrap").hidden = b.doneHidden;
-    setRadio("priority", b.priority);
-    setRadio("field", b.field);
-    showFormPhoto();
-    showSheet("form");
+  $("fNewCancel").onclick = () => { hideNewField(); $("fNewField").focus(); };
+  function addFromForm() {
+    const name = $("fNewName").value.trim().slice(0, 30);
+    if (!name) { $("fNewName").focus(); return; }
+    if (FIELDS.some(f => f.name.toLowerCase() === name.toLowerCase())) { newMsg.textContent = "There is already a workfield called " + name + "."; return; }
+    const color = ($("fNewSwatches").querySelector("input:checked") || {}).value || unusedColor();
+    const id = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    custom.push({ id, name, color }); saveFields(); FIELDS = BUILTIN.concat(custom);
+    renderFieldOptions(); setRadio("field", id);
+    hideNewField(); resetFieldForm(); render();
   }
+  $("fNewAdd").onclick = addFromForm;
+  // Enter in the name box must add the workfield, not save the task.
+  $("fNewName").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addFromForm(); } });
 
   // ---------- photos ----------
   let viewId = null;      // task whose photo is open full screen
