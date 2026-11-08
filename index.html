@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ayesha Refit</title>
+<meta name="theme-color" content="#0f4c5c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Ayesha">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one-screen phone app. Slim top bar, the boat drawing fills the rest; task details live in bottom sheets opened from the pins. */
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --raised: #f3f5f7;
+  --ink: #17212b;
+  --ink-soft: #5a6773;
+  --line: #d9dfe4;
+  --accent: #0f4c5c;
+  --scrim: rgba(10, 20, 28, .4);
+
+  --hull: #1f5fbf;
+  --electronics: #d0342c;
+  --rigging: #15181c;
+  --interior: #e8831a;
+  --pin-ring: #ffffff;
+  --pin-text: #ffffff;
+
+  --high: #b42318;
+  --high-bg: #fde8e6;
+  --medium: #a15c07;
+  --medium-bg: #fdf0dc;
+  --low: #3d6b4f;
+  --low-bg: #e4f1e8;
+
+  --img-filter: none;
+
+  --font-display: "Bitter", Georgia, serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1a1a1a; --surface: #20272d; --raised: #2a333b; --ink: #e6ecf0; --ink-soft: #9fadb8; --line: #36414b; --accent: #6cc3d5; --scrim: rgba(0, 0, 0, .55);
+  --hull: #4a8ae8; --electronics: #ef5a4f; --rigging: #0b0d0f; --interior: #f29a3a; --pin-ring: #e6ecf0; --pin-text: #ffffff;
+  --high: #ff8a80; --high-bg: #3d1d1b; --medium: #f2b766; --medium-bg: #3a2b14; --low: #8fd0a6; --low-bg: #1b3326;
+  --img-filter: invert(.9);
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #1a1a1a; --surface: #20272d; --raised: #2a333b; --ink: #e6ecf0; --ink-soft: #9fadb8; --line: #36414b; --accent: #6cc3d5; --scrim: rgba(0, 0, 0, .55);
+  --hull: #4a8ae8; --electronics: #ef5a4f; --rigging: #0b0d0f; --interior: #f29a3a; --pin-ring: #e6ecf0; --pin-text: #ffffff;
+  --high: #ff8a80; --high-bg: #3d1d1b; --medium: #f2b766; --medium-bg: #3a2b14; --low: #8fd0a6; --low-bg: #1b3326;
+  --img-filter: invert(.9);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  overflow: hidden;
+}
+.app {
+  height: 100%; display: flex; flex-direction: column;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px 6px;
+  gap: 8px;
+}
+.f-hull { --fc: var(--hull); } .f-electronics { --fc: var(--electronics); } .f-rigging { --fc: var(--rigging); } .f-interior { --fc: var(--interior); }
+.dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: none; background: var(--fc); box-shadow: 0 0 0 1.5px var(--pin-ring), 0 0 0 2.5px var(--line); }
+
+/* Top bar */
+.bar { display: flex; align-items: center; gap: 12px; }
+.bar .name { flex: 1; min-width: 0; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.4rem; line-height: 1.1; margin: 0; }
+.progress { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--ink-soft); margin-top: 3px; }
+.progress .track { width: 64px; height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; flex: none; }
+.progress .track i { display: block; height: 100%; background: var(--accent); }
+.progress b { font-family: var(--font-mono); font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.iconbtn { font: inherit; font-size: .88rem; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 8px 14px; cursor: pointer; flex: none; }
+.iconbtn svg { width: 16px; height: 16px; }
+
+/* Filter chips */
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { font: inherit; font-size: .82rem; flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 5px 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip .n { font-family: var(--font-mono); font-size: .75rem; opacity: .75; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Stage: the boat fills what's left */
+.stage { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; }
+.boatbox { position: relative; width: min(100cqw, calc(100cqh * 1782 / 2042)); aspect-ratio: 1782 / 2042; max-width: 100%; }
+.boatbox svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: manipulation; }
+.boat-img { filter: var(--img-filter); pointer-events: none; }
+.zone, .zone * { fill: var(--fc); fill-opacity: 0; transition: fill-opacity .15s; }
+@media (hover: hover) { .zone:hover, .zone:hover * { fill-opacity: .12; } }
+.zone.flash, .zone.flash * { fill-opacity: .18; }
+
+.pins { position: absolute; inset: 0; pointer-events: none; }
+.pin {
+  position: absolute; transform: translate(-50%, -50%);
+  pointer-events: auto; cursor: pointer;
+  width: var(--s); height: var(--s); border-radius: 50%;
+  background: var(--fc); color: var(--pin-text);
+  border: 2.5px solid var(--pin-ring);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+  font-family: var(--font-mono); font-size: calc(var(--s) * .45); font-weight: 500; line-height: 1;
+  display: grid; place-items: center; padding: 0;
+}
+.pin.p-high { --s: 34px; } .pin.p-medium { --s: 30px; } .pin.p-low { --s: 26px; }
+.pin.done { opacity: .4; }
+.pin.sel { box-shadow: 0 0 0 4px var(--accent), 0 1px 4px rgba(0, 0, 0, .35); z-index: 2; }
+@media (prefers-reduced-motion: no-preference) { .pin { transition: transform .12s; } .pin:active { transform: translate(-50%, -50%) scale(1.12); } }
+
+.tip { margin: 0; text-align: center; font-size: .78rem; color: var(--ink-soft); }
+.status { font-size: .72rem; color: var(--ink-soft); text-align: center; }
+.status:empty { display: none; }
+
+/* Bottom sheets */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 20; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 21;
+  background: var(--surface); color: var(--ink);
+  border-radius: 16px 16px 0 0; box-shadow: 0 -6px 30px rgba(0, 0, 0, .2);
+  max-height: 85%; display: flex; flex-direction: column;
+  max-width: 560px; margin: 0 auto;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 8px auto 2px; flex: none; }
+.sheet .body {
+  overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+  padding-block: 8px 16px;
+  padding-left: max(18px, env(safe-area-inset-left, 0px));
+  padding-right: max(18px, env(safe-area-inset-right, 0px));
+}
+@media (prefers-reduced-motion: no-preference) { .sheet { animation: up .2s ease-out; } @keyframes up { from { transform: translateY(30px); opacity: .6; } } }
+h2 { font-family: var(--font-display); font-weight: 500; font-size: 1.25rem; line-height: 1.25; margin: 0; overflow-wrap: anywhere; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: .78rem; border-radius: 999px; padding: 3px 10px; display: inline-flex; align-items: center; gap: 6px; background: var(--raised); }
+.tag.p-high { background: var(--high-bg); color: var(--high); }
+.tag.p-medium { background: var(--medium-bg); color: var(--medium); }
+.tag.p-low { background: var(--low-bg); color: var(--low); }
+.tag.ex { background: none; border: 1px dashed var(--ink-soft); color: var(--ink-soft); }
+.notes { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .95rem; }
+.notes.none { color: var(--ink-soft); font-style: italic; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row .grow { flex: 1; }
+
+.btn { font: inherit; font-weight: 500; font-size: .92rem; border-radius: 10px; padding: 11px 16px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.danger { color: var(--high); border-color: var(--high); background: transparent; }
+.btn.danger.armed { background: var(--high); color: var(--surface); }
+.btn.link { border: 0; background: none; color: var(--ink-soft); padding: 6px 0; font-weight: 400; text-decoration: underline; }
+
+/* List sheet */
+.lhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.group h3 { margin: 6px 0 2px; font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; }
+.group.p-high h3 { color: var(--high); } .group.p-medium h3 { color: var(--medium); } .group.p-low h3 { color: var(--low); }
+.group ul { list-style: none; margin: 0; padding: 0; }
+.group li button { font: inherit; width: 100%; text-align: left; display: flex; align-items: center; gap: 10px; background: none; border: 0; border-top: 1px solid var(--line); padding: 11px 2px; color: var(--ink); cursor: pointer; }
+.group li:first-child button { border-top: 0; }
+.group li button span { min-width: 0; overflow-wrap: anywhere; }
+.group li.done button span { text-decoration: line-through; color: var(--ink-soft); }
+.empty { text-align: center; color: var(--ink-soft); padding: 18px 8px; }
+
+/* Add / edit dialog */
+dialog { border: 0; border-radius: 16px; padding: 0; background: var(--surface); color: var(--ink); width: min(480px, calc(100vw - 24px)); max-height: calc(100% - 24px); }
+dialog::backdrop { background: var(--scrim); }
+dialog form { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
+.where { font-size: .8rem; color: var(--ink-soft); }
+label.f { display: flex; flex-direction: column; gap: 5px; font-size: .82rem; font-weight: 600; color: var(--ink-soft); }
+input[type="text"], textarea { font: inherit; font-size: 16px; color: var(--ink); background: var(--raised); border: 1px solid var(--line); border-radius: 9px; padding: 10px; width: 100%; }
+textarea { min-height: 90px; resize: vertical; }
+fieldset { border: 0; margin: 0; padding: 0; }
+legend { font-size: .82rem; font-weight: 600; color: var(--ink-soft); padding: 0; margin-bottom: 6px; }
+.seg { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.seg.three { grid-template-columns: repeat(3, 1fr); }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; }
+.seg span { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: .9rem; border: 1px solid var(--line); border-radius: 9px; padding: 10px 4px; cursor: pointer; }
+.seg input:checked + span { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); font-weight: 600; }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg .ph span { color: var(--high); } .seg .pm span { color: var(--medium); } .seg .pl span { color: var(--low); }
+.toggle { font-size: .9rem; display: inline-flex; align-items: center; gap: 8px; }
+.toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions .right { display: flex; gap: 8px; margin-left: auto; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+.app { padding-top: max(10px, env(safe-area-inset-top, 0px)); padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)); }
+.backup { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.backup p { margin: 0; font-size: .82rem; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="bar">
+    <div class="name">
+      <h1>Ayesha</h1>
+      <div class="progress" id="progress"><span class="track"><i style="width:0%"></i></span><span>Loading…</span></div>
+    </div>
+    <button class="iconbtn" id="openList" type="button" aria-label="Show all tasks as a list">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
+      List
+    </button>
+  </header>
+
+  <div class="chips" id="chips" role="group" aria-label="Show pins for"></div>
+
+  <main class="stage">
+    <div class="boatbox">
+      <svg id="boat" viewBox="0 0 1782 2042" role="img" aria-label="Side view of Ayesha. Tap to add a task at that spot.">
+        <image class="boat-img" href="ayesha.jpg" x="0" y="0" width="1782" height="2042" preserveAspectRatio="xMidYMid meet"/>
+        <polygon data-zone="rigging" class="zone f-rigging" points="55,1530 335,780 990,0 1060,0 1720,1545 1600,1545 1560,1505 990,1505 610,1508 60,1540"/>
+        <polygon data-zone="hull" class="zone f-hull" points="215,1625 590,1612 990,1612 1300,1592 1560,1555 1600,1520 1720,1540 1600,1700 1380,1725 1200,1800 1000,1880 760,1940 530,1970 420,1970 370,1700 290,1705"/>
+        <polygon data-zone="interior" class="zone f-interior" points="600,1508 990,1505 995,1560 1295,1548 1300,1590 990,1612 590,1612 370,1625 370,1585 600,1575"/>
+        <g data-zone="electronics" class="zone f-electronics">
+          <rect x="985" y="0" width="70" height="70" rx="14"/>
+          <rect x="325" y="780" width="45" height="45" rx="10"/>
+          <rect x="1005" y="775" width="40" height="45" rx="10"/>
+          <rect x="462" y="1525" width="48" height="85" rx="10"/>
+        </g>
+      </svg>
+      <div class="pins" id="pins"></div>
+    </div>
+  </main>
+
+  <p class="tip">Tap the boat to add a job · tap a pin to read it</p>
+  <div class="status" id="status"></div>
+</div>
+
+<!-- Task detail sheet -->
+<div class="scrim" id="scrim" hidden></div>
+<section class="sheet" id="detail" hidden aria-labelledby="dTitle" role="dialog">
+  <div class="grab"></div>
+  <div class="body">
+    <h2 id="dTitle"></h2>
+    <div class="tags" id="dTags"></div>
+    <div class="notes" id="dNotes"></div>
+    <div class="row">
+      <button class="btn primary grow" id="dDone" type="button">Mark finished</button>
+      <button class="btn" id="dEdit" type="button">Edit</button>
+      <button class="btn" id="dClose" type="button">Close</button>
+    </div>
+  </div>
+</section>
+
+<!-- List sheet -->
+<section class="sheet" id="list" hidden aria-labelledby="lTitle" role="dialog">
+  <div class="grab"></div>
+  <div class="body">
+    <div class="lhead">
+      <h2 id="lTitle">To do before sailing</h2>
+      <button class="btn" id="lClose" type="button">Close</button>
+    </div>
+    <div class="row" style="justify-content: space-between; align-items: center;">
+      <label class="toggle"><input type="checkbox" id="showDone"> Show finished jobs</label>
+      <button class="btn link" id="addNoSpot" type="button">Add task without a spot</button>
+    </div>
+    <div id="groups"></div>
+    <button class="btn link" id="clearExamples" type="button" hidden>Remove example tasks</button>
+    <div class="backup">
+      <h3 style="margin:0;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)">Backup</h3>
+      <p>Your tasks are stored only on this phone. Save a backup now and then, and use it to move the list to another device.</p>
+      <div class="row">
+        <button class="btn" id="exportBtn" type="button">Save backup file</button>
+        <label class="btn" for="importFile" style="display:inline-flex;align-items:center">Restore from backup</label>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+      <p id="backupMsg" role="status"></p>
+    </div>
+  </div>
+</section>
+
+<dialog id="dlg">
+  <form id="taskForm" method="dialog">
+    <div>
+      <h2 id="fHead">New task</h2>
+      <div class="where" id="fWhere"></div>
+    </div>
+    <label class="f">What needs doing
+      <input type="text" id="fTitle" required maxlength="140" placeholder="e.g. Replace the forestay">
+    </label>
+    <fieldset>
+      <legend>Workfield</legend>
+      <div class="seg">
+        <label><input type="radio" name="field" value="hull" id="fld-hull"><span><i class="dot f-hull"></i>Hull</span></label>
+        <label><input type="radio" name="field" value="electronics" id="fld-electronics"><span><i class="dot f-electronics"></i>Electronics</span></label>
+        <label><input type="radio" name="field" value="rigging" id="fld-rigging"><span><i class="dot f-rigging"></i>Rigging</span></label>
+        <label><input type="radio" name="field" value="interior" id="fld-interior"><span><i class="dot f-interior"></i>Interior</span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Priority</legend>
+      <div class="seg three">
+        <label class="ph"><input type="radio" name="priority" value="high" id="pr-high"><span>High</span></label>
+        <label class="pm"><input type="radio" name="priority" value="medium" id="pr-medium"><span>Medium</span></label>
+        <label class="pl"><input type="radio" name="priority" value="low" id="pr-low"><span>Low</span></label>
+      </div>
+    </fieldset>
+    <label class="f">Notes
+      <textarea id="fNotes" maxlength="2000" placeholder="Parts, sizes, where to buy, how far along…"></textarea>
+    </label>
+    <label class="toggle" id="doneWrap"><input type="checkbox" id="fDone"> Finished</label>
+    <div class="actions">
+      <button class="btn danger" type="button" id="btnDelete">Delete</button>
+      <div class="right">
+        <button class="btn" type="button" id="btnCancel">Cancel</button>
+        <button class="btn primary" type="submit" id="btnSave">Save</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  const W = 1782, H = 2042;
+  const FIELDS = [
+    { id: "hull", name: "Hull" },
+    { id: "electronics", name: "Electronics" },
+    { id: "rigging", name: "Rigging" },
+    { id: "interior", name: "Interior" },
+  ];
+  const PRI = [
+    { id: "high", name: "High", letter: "H" },
+    { id: "medium", name: "Medium", letter: "M" },
+    { id: "low", name: "Low", letter: "L" },
+  ];
+  const fieldName = id => (FIELDS.find(f => f.id === id) || {}).name || id;
+  const priName = id => (PRI.find(p => p.id === id) || {}).name || id;
+  const priLetter = id => (PRI.find(p => p.id === id) || {}).letter || "?";
+  const ZONE_NAMES = { hull: "on the hull", electronics: "at the electronics", rigging: "in the rig", interior: "on deck / in the cabin" };
+  const $ = id => document.getElementById(id);
+
+  let tasks = [];
+  let filterField = "all";
+  let showDone = false;
+  let openId = null;
+  let editing = null;
+  let lastField = "hull";
+  let store = null;
+
+  try { showDone = localStorage.getItem("refit.showDone") === "1"; } catch (e) {}
+  $("showDone").checked = showDone;
+
+  // ---------- storage ----------
+  const statusEl = $("status");
+  function localStore() {
+    const KEY = "refit.tasks";
+    let data = {};
+    try { data = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) {}
+    let cb = () => {};
+    const push = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} cb(Object.entries(data).map(([id, t]) => ({ id, ...t }))); };
+    return {
+      subscribe(fn) { cb = fn; push(); },
+      async save(id, t) { id = id || ("t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)); data[id] = t; push(); },
+      async remove(id) { delete data[id]; push(); },
+      all() { return data; },
+      async replaceAll(d) { data = d; push(); },
+    };
+  }
+  const EXAMPLES = {
+    ex1: { title: "Antifoul and check keel bolts", notes: "Sand back to primer below the waterline first.", field: "hull", priority: "high", done: false, x: 900, y: 1790, createdAt: 1, example: true },
+    ex2: { title: "Replace the forestay", notes: "Measure pin to pin before ordering.", field: "rigging", priority: "high", done: false, x: 1365, y: 820, createdAt: 2, example: true },
+    ex3: { title: "Test VHF and masthead antenna", notes: "", field: "electronics", priority: "medium", done: false, x: 1012, y: 45, createdAt: 3, example: true },
+    ex4: { title: "New cushions for the saloon", notes: "", field: "interior", priority: "low", done: false, x: 800, y: 1560, createdAt: 4, example: true },
+  };
+  try {
+    if (!localStorage.getItem("refit.started")) {
+      localStorage.setItem("refit.tasks", JSON.stringify(EXAMPLES));
+      localStorage.setItem("refit.started", "1");
+    }
+  } catch (e) {}
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+  store = localStore();
+  store.subscribe(list => { tasks = list; render(); });
+
+  async function safe(p, msg) { try { await p; } catch (e) { statusEl.textContent = msg + " (" + (e && e.code || "error") + ")"; } }
+
+  // ---------- render ----------
+  const priRank = { high: 0, medium: 1, low: 2 };
+  const sorted = list => [...list].sort((a, b) => (priRank[a.priority] - priRank[b.priority]) || ((a.createdAt || 0) - (b.createdAt || 0)));
+  const visible = t => (filterField === "all" || t.field === filterField) && (showDone || !t.done);
+
+  function render() {
+    renderProgress();
+    renderChips();
+    renderPins();
+    renderList();
+    if (openId) { const t = tasks.find(x => x.id === openId); if (t) fillDetail(t); else closeSheets(); }
+  }
+
+  function renderProgress() {
+    const total = tasks.length, done = tasks.filter(t => t.done).length;
+    const pct = total ? Math.round(done / total * 100) : 0;
+    const high = tasks.filter(t => !t.done && t.priority === "high").length;
+    $("progress").innerHTML = `<span class="track"><i style="width:${pct}%"></i></span><span><b>${pct}%</b> ready · <b>${high}</b> high priority open</span>`;
+  }
+
+  function renderChips() {
+    const el = $("chips"); el.innerHTML = "";
+    const mk = (id, label) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "chip"; b.id = "chip-" + id;
+      b.setAttribute("aria-pressed", String(filterField === id));
+      if (id !== "all") { const i = document.createElement("i"); i.className = "dot f-" + id; b.appendChild(i); }
+      b.appendChild(document.createTextNode(label));
+      const n = document.createElement("span"); n.className = "n";
+      n.textContent = tasks.filter(t => (id === "all" || t.field === id) && !t.done).length;
+      b.appendChild(n);
+      b.onclick = () => { filterField = id; render(); };
+      el.appendChild(b);
+    };
+    mk("all", "All");
+    FIELDS.forEach(f => mk(f.id, f.name));
+  }
+
+  function renderPins() {
+    const el = $("pins"); el.innerHTML = "";
+    const list = sorted(tasks.filter(t => typeof t.x === "number" && visible(t))).reverse();
+    for (const t of list) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `pin f-${t.field} p-${t.priority}` + (t.done ? " done" : "") + (openId === t.id ? " sel" : "");
+      b.style.left = (t.x / W * 100) + "%";
+      b.style.top = (t.y / H * 100) + "%";
+      b.textContent = priLetter(t.priority);
+      b.setAttribute("aria-label", `${t.title}, ${fieldName(t.field)}, ${priName(t.priority)} priority`);
+      b.onclick = e => { e.stopPropagation(); openDetail(t.id); };
+      el.appendChild(b);
+    }
+  }
+
+  function renderList() {
+    const el = $("groups"); el.innerHTML = "";
+    const list = sorted(tasks.filter(visible));
+    $("clearExamples").hidden = !tasks.some(t => t.example);
+    if (!list.length) {
+      el.innerHTML = tasks.length
+        ? `<div class="empty">No open jobs${filterField === "all" ? ". Time to go sailing." : " in " + fieldName(filterField) + "."}</div>`
+        : `<div class="empty">Nothing on the list yet. Tap the boat to pin your first job.</div>`;
+      return;
+    }
+    for (const p of PRI) {
+      const items = list.filter(t => t.priority === p.id);
+      if (!items.length) continue;
+      const g = document.createElement("div"); g.className = "group p-" + p.id;
+      const h = document.createElement("h3"); h.textContent = `${p.name} priority · ${items.length}`;
+      const ul = document.createElement("ul");
+      for (const t of items) {
+        const li = document.createElement("li"); if (t.done) li.className = "done";
+        const b = document.createElement("button"); b.type = "button";
+        const d = document.createElement("i"); d.className = "dot f-" + t.field;
+        const s = document.createElement("span"); s.textContent = t.title;
+        b.append(d, s);
+        b.onclick = () => openDetail(t.id);
+        li.appendChild(b); ul.appendChild(li);
+      }
+      g.append(h, ul); el.appendChild(g);
+    }
+  }
+
+  // ---------- sheets ----------
+  function showSheet(id) {
+    $("detail").hidden = id !== "detail";
+    $("list").hidden = id !== "list";
+    $("scrim").hidden = !id;
+  }
+  function closeSheets() { openId = null; showSheet(null); renderPins(); }
+
+  function fillDetail(t) {
+    $("dTitle").textContent = t.title;
+    const tags = $("dTags"); tags.innerHTML = "";
+    const f = document.createElement("span"); f.className = "tag";
+    const d = document.createElement("i"); d.className = "dot f-" + t.field; f.append(d, document.createTextNode(fieldName(t.field)));
+    const p = document.createElement("span"); p.className = "tag p-" + t.priority; p.textContent = priName(t.priority) + " priority";
+    tags.append(f, p);
+    if (t.done) { const x = document.createElement("span"); x.className = "tag"; x.textContent = "Finished"; tags.appendChild(x); }
+    if (typeof t.x !== "number") { const x = document.createElement("span"); x.className = "tag"; x.textContent = "No spot on the drawing"; tags.appendChild(x); }
+    if (t.example) { const x = document.createElement("span"); x.className = "tag ex"; x.textContent = "Example"; tags.appendChild(x); }
+    const n = $("dNotes");
+    n.textContent = t.notes || "No notes yet.";
+    n.className = "notes" + (t.notes ? "" : " none");
+    $("dDone").textContent = t.done ? "Mark not finished" : "Mark finished";
+  }
+  function openDetail(id) {
+    const t = tasks.find(x => x.id === id); if (!t) return;
+    openId = id; fillDetail(t); showSheet("detail"); renderPins();
+  }
+  $("dClose").onclick = closeSheets;
+  $("scrim").onclick = closeSheets;
+  $("dDone").onclick = () => {
+    const t = tasks.find(x => x.id === openId); if (!t) return;
+    const { id, ...body } = t;
+    safe(store.save(id, { ...body, done: !t.done }), "Could not save");
+  };
+  $("dEdit").onclick = () => { const t = tasks.find(x => x.id === openId); if (t) { showSheet(null); openDialog(t); } };
+  $("openList").onclick = () => { openId = null; renderPins(); showSheet("list"); };
+  $("lClose").onclick = closeSheets;
+  $("showDone").onchange = e => {
+    showDone = e.target.checked;
+    try { localStorage.setItem("refit.showDone", showDone ? "1" : "0"); } catch (err) {}
+    render();
+  };
+  $("addNoSpot").onclick = () => { if (store) { showSheet(null); openDialog(null, null); } };
+  $("clearExamples").onclick = () => { tasks.filter(t => t.example).forEach(t => safe(store.remove(t.id), "Could not delete")); };
+  $("exportBtn").onclick = () => {
+    const blob = new Blob([JSON.stringify({ app: "ayesha-refit", version: 1, savedAt: new Date().toISOString(), tasks: store.all() }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "ayesha-tasks-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    $("backupMsg").textContent = "Backup saved to your downloads.";
+  };
+  $("importFile").onchange = async e => {
+    const file = e.target.files && e.target.files[0]; if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const t = parsed && parsed.tasks;
+      if (!t || typeof t !== "object" || Array.isArray(t)) throw new Error("bad");
+      const clean = {};
+      for (const [id, v] of Object.entries(t)) {
+        if (!v || typeof v.title !== "string") continue;
+        clean[id] = {
+          title: v.title.slice(0, 140), notes: String(v.notes || "").slice(0, 2000),
+          field: ["hull", "electronics", "rigging", "interior"].includes(v.field) ? v.field : "hull",
+          priority: ["high", "medium", "low"].includes(v.priority) ? v.priority : "medium",
+          done: !!v.done, createdAt: Number(v.createdAt) || Date.now(),
+          ...(typeof v.x === "number" ? { x: v.x, y: Number(v.y) || 0 } : {}),
+          ...(v.example ? { example: true } : {}),
+        };
+      }
+      await store.replaceAll(clean);
+      $("backupMsg").textContent = "Restored " + Object.keys(clean).length + " tasks from " + file.name + ".";
+    } catch (err) {
+      $("backupMsg").textContent = "That file is not a backup from this app. Choose a file named like ayesha-tasks-2026-11-08.json.";
+    }
+    e.target.value = "";
+  };
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+  }
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("scrim").hidden) closeSheets(); });
+
+  // ---------- tapping the boat ----------
+  const svg = $("boat");
+  svg.addEventListener("click", evt => {
+    if (!store) return;
+    const zoneEl = evt.target.closest("[data-zone]");
+    const zone = zoneEl ? zoneEl.getAttribute("data-zone") : null;
+    if (zoneEl) { zoneEl.classList.add("flash"); setTimeout(() => zoneEl.classList.remove("flash"), 350); }
+    const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const x = Math.round(Math.max(30, Math.min(W - 30, p.x)));
+    const y = Math.round(Math.max(30, Math.min(H - 30, p.y)));
+    openDialog(null, { x, y, zone });
+  });
+
+  // ---------- add / edit dialog ----------
+  const dlg = $("dlg"), form = $("taskForm");
+  const btnDelete = $("btnDelete");
+  let deleteArmed = false;
+  const setRadio = (name, val) => { const r = form.querySelector(`input[name="${name}"][value="${val}"]`); if (r) r.checked = true; };
+
+  function openDialog(task, spot) {
+    deleteArmed = false; btnDelete.textContent = "Delete"; btnDelete.classList.remove("armed");
+    if (task) {
+      editing = { id: task.id, x: task.x, y: task.y, createdAt: task.createdAt, example: !!task.example };
+      $("fHead").textContent = "Edit task";
+      $("fWhere").textContent = typeof task.x === "number" ? "Pinned on the drawing" : "Not pinned on the drawing";
+      $("fTitle").value = task.title || ""; $("fNotes").value = task.notes || ""; $("fDone").checked = !!task.done;
+      setRadio("field", task.field); setRadio("priority", task.priority);
+      btnDelete.hidden = false; $("doneWrap").hidden = false;
+    } else {
+      editing = { id: null, x: spot ? spot.x : null, y: spot ? spot.y : null, createdAt: null, example: false };
+      $("fHead").textContent = "New task";
+      $("fWhere").textContent = spot ? "Pinned where you tapped" + (spot.zone ? " " + ZONE_NAMES[spot.zone] : "") : "Not pinned on the drawing";
+      $("fTitle").value = ""; $("fNotes").value = ""; $("fDone").checked = false;
+      setRadio("field", (spot && spot.zone) || (filterField !== "all" ? filterField : lastField));
+      setRadio("priority", "medium");
+      btnDelete.hidden = true; $("doneWrap").hidden = true;
+    }
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  }
+  function closeDialog() { dlg.close ? dlg.close() : dlg.removeAttribute("open"); }
+  // after editing from the detail sheet, return to it
+  dlg.addEventListener("close", () => {
+    if (editing && editing.id && openId === editing.id && tasks.some(t => t.id === editing.id)) showSheet("detail");
+    editing = null;
+  });
+
+  form.addEventListener("submit", evt => {
+    evt.preventDefault();
+    const title = $("fTitle").value.trim();
+    if (!title) { $("fTitle").focus(); return; }
+    const field = (form.querySelector('input[name="field"]:checked') || {}).value || "hull";
+    const priority = (form.querySelector('input[name="priority"]:checked') || {}).value || "medium";
+    lastField = field;
+    const body = { title, notes: $("fNotes").value.trim(), field, priority, done: editing.id ? $("fDone").checked : false, createdAt: editing.createdAt || Date.now() };
+    if (typeof editing.x === "number") { body.x = editing.x; body.y = editing.y; }
+    if (editing.example) body.example = true;
+    const id = editing.id;
+    safe(store.save(id, body), "Could not save");
+    closeDialog();
+  });
+  $("btnCancel").onclick = closeDialog;
+  btnDelete.onclick = () => {
+    if (!deleteArmed) { deleteArmed = true; btnDelete.textContent = "Tap again to delete"; btnDelete.classList.add("armed"); return; }
+    const id = editing && editing.id;
+    editing = null;
+    closeDialog();
+    if (id) { if (openId === id) closeSheets(); safe(store.remove(id), "Could not delete"); }
+  };
+  dlg.addEventListener("click", e => { if (e.target === dlg) closeDialog(); });
+
+  render();
+})();
+</script>
+</body>
+</html>
