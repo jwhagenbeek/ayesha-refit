@@ -65,7 +65,7 @@ body {
 .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: none; background: var(--fc); box-shadow: 0 0 0 1.5px var(--pin-ring), 0 0 0 2.5px var(--line); }
 
 /* Top bar */
-.bar { display: flex; align-items: center; gap: 12px; }
+.bar { display: flex; align-items: center; gap: 8px; }
 .bar .name { flex: 1; min-width: 0; }
 h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.4rem; line-height: 1.1; margin: 0; }
 .progress { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--ink-soft); margin-top: 3px; }
@@ -74,6 +74,8 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.4rem; line
 .progress b { font-family: var(--font-mono); font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
 .iconbtn { font: inherit; font-size: .88rem; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 8px 14px; cursor: pointer; flex: none; }
 .iconbtn svg { width: 16px; height: 16px; }
+.iconbtn.icononly { padding: 8px 10px; }
+.iconbtn.icononly svg { width: 18px; height: 18px; }
 
 /* Filter chips */
 .chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
@@ -276,6 +278,9 @@ body { margin: 0; }
       <div class="progress" id="progress"><span class="track"><i style="width:0%"></i></span><span>Loading…</span></div>
     </div>
     <button class="iconbtn addbtn" id="addTop" type="button" aria-label="Add a task">+ Task</button>
+    <button class="iconbtn icononly" id="pickDrawing" type="button" aria-label="Change the picture" title="Change the picture">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="2" stroke="currentColor" stroke-width="1.6" fill="none"/><circle cx="5.5" cy="6.5" r="1.4" fill="currentColor"/><path d="M2.5 12.5l4-4 3 3 2-2 3 3" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>
+    </button>
     <button class="iconbtn" id="openList" type="button" aria-label="Show all tasks as a list">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
       List
@@ -292,7 +297,7 @@ body { margin: 0; }
     </div>
     <p class="fmsg" id="cNewMsg" role="status"></p>
   </div>
-  <p class="tip">Tap the boat to add a job · tap a pin to read it · hold a pin to move it · <span style="opacity:.6">v12</span></p>
+  <p class="tip">Tap the boat to add a job · tap a pin to read it · hold a pin to move it · <span style="opacity:.6">v13</span></p>
   <div class="status" id="status"></div>
 
   <main class="stage">
@@ -900,19 +905,26 @@ window.addEventListener("error", e => {
     drawing = okDrawing(d) ? { src: d.src, w: Math.round(d.w), h: Math.round(d.h) } : null;
     const img = $("customImg");
     if (drawing) {
-      img.src = drawing.src; img.hidden = false; $("boat").hidden = true;
+      img.src = drawing.src; img.hidden = false; $("boat").setAttribute("hidden", "");
       boatbox.style.setProperty("--aw", drawing.w); boatbox.style.setProperty("--ah", drawing.h);
     } else {
-      img.hidden = true; img.removeAttribute("src"); $("boat").hidden = false;
+      img.hidden = true; img.removeAttribute("src"); $("boat").removeAttribute("hidden");
       boatbox.style.removeProperty("--aw"); boatbox.style.removeProperty("--ah");
     }
     $("drawingNow").textContent = drawing ? "Using your own picture." : "Using the Ayesha drawing.";
     $("drawingReset").hidden = !drawing;
   }
   photos.get(DRAWING_KEY).then(showDrawing).catch(() => {});
+  $("pickDrawing").onclick = () => $("drawingFile").click();
+  // Messages go both to the Drawing section and, briefly, to the status line on the main screen.
+  let drawingNoteTimer = null;
+  const msg = { set textContent(t) {
+    $("drawingMsg").textContent = t; statusEl.textContent = t;
+    clearTimeout(drawingNoteTimer); drawingNoteTimer = setTimeout(() => { if (statusEl.textContent === t) statusEl.textContent = ""; }, 6000);
+  } };
   $("drawingFile").onchange = async e => {
     const file = e.target.files && e.target.files[0]; e.target.value = ""; if (!file) return;
-    const msg = $("drawingMsg"); msg.textContent = "Loading picture…";
+    msg.textContent = "Loading picture…";
     try {
       const d = await readImage(file, 2000);
       await photos.put(DRAWING_KEY, d);
@@ -926,7 +938,7 @@ window.addEventListener("error", e => {
   };
   $("drawingReset").onclick = async () => {
     try { await photos.del(DRAWING_KEY); } catch (e) {}
-    showDrawing(null); $("drawingMsg").textContent = "Back to the Ayesha drawing.";
+    showDrawing(null); msg.textContent = "Back to the Ayesha drawing.";
   };
   function zoneOf(el) {
     while (el && el !== boatbox) {
